@@ -1,5 +1,6 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import * as seed from '../mocks/mockData'
+import { supabase } from '../lib/supabase'
 import type {
   Aluno,
   AlunoStatus,
@@ -34,7 +35,6 @@ interface AppDataState {
   graduacoesHistorico: GraduacaoHistorico[]
   materiais: Material[]
   movimentosEstoque: MovimentoEstoque[]
-  currentAccountId: string | null
 }
 
 export interface NovoProfessorInput {
@@ -92,9 +92,9 @@ export interface NovoMovimentoEstoqueInput {
 
 interface AppDataContextValue extends AppDataState {
   currentAccount: Profile | null
-  switchAccount: (profileId: string) => void
-  login: (email: string, password: string) => { success: boolean; error?: string }
-  logout: () => void
+  authLoading: boolean
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  logout: () => Promise<void>
   resetData: () => void
   confirmarPagamento: (pagamentoId: string, confirmadoPorId: string, metodo: MetodoPagamento) => void
   createProfessor: (input: NovoProfessorInput) => void
@@ -125,40 +125,95 @@ function buildInitialState(): AppDataState {
     graduacoesHistorico: structuredClone(seed.graduacoesHistorico),
     materiais: structuredClone(seed.materiais),
     movimentosEstoque: structuredClone(seed.movimentosEstoque),
-    currentAccountId: null,
   }
+}
+
+// profiles é uma linha de auth.users (id = auth user id). phone/avatar_url
+// vêm null do Postgres; o domínio usa `undefined` para campo opcional ausente.
+function mapProfileRow(row: {
+  id: string
+  full_name: string
+  email: string
+  phone: string | null
+  role: Profile['role']
+  status: Profile['status']
+}): Profile {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    email: row.email,
+    phone: row.phone ?? undefined,
+    role: row.role,
+    status: row.status,
+  }
+}
+
+function translateAuthError(message: string): string {
+  if (message.toLowerCase().includes('invalid login credentials')) return 'E-mail ou senha inválidos.'
+  return message
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null)
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppDataState>(buildInitialState)
+  const [currentAccount, setCurrentAccount] = useState<Profile | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
 
-  const currentAccount = useMemo(
-    () => state.profiles.find((p) => p.id === state.currentAccountId) ?? null,
-    [state.profiles, state.currentAccountId]
-  )
+  // Bootstrap de sessão: ao carregar a página e a cada mudança de estado de
+  // auth (login/logout/refresh de token em outra aba), busca o profile real
+  // do usuário logado. As demais listas (professores, alunos, ...) ainda são
+  // mock — só a identidade da conta logada já vem do Supabase.
+  useEffect(() => {
+    let active = true
+
+    async function loadProfile(userId: string) {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
+      if (!active) return
+      setCurrentAccount(error || !data ? null : mapProfileRow(data))
+      setAuthLoading(false)
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active) return
+      if (session?.user) loadProfile(session.user.id)
+      else setAuthLoading(false)
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setAuthLoading(true)
+        loadProfile(session.user.id)
+      } else {
+        setCurrentAccount(null)
+        setAuthLoading(false)
+      }
+    })
+
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
+  }, [])
 
   const value: AppDataContextValue = {
     ...state,
     currentAccount,
+    authLoading,
 
-    switchAccount: (profileId) => setState((s) => ({ ...s, currentAccountId: profileId })),
-
-    // Mock: valida só se o e-mail existe entre as contas de teste — a senha
-    // não é checada. Quando o Supabase Auth estiver pronto (Fase 2), troca
-    // por supabase.auth.signInWithPassword() sem os componentes saberem.
-    login: (email, password) => {
-      if (!password) return { success: false, error: 'Informe a senha.' }
-      const profile = state.profiles.find((p) => p.email.toLowerCase() === email.trim().toLowerCase())
-      if (!profile) return { success: false, error: 'E-mail não encontrado entre as contas de teste.' }
-      setState((s) => ({ ...s, currentAccountId: profile.id }))
+    login: async (email, password) => {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      if (error) return { success: false, error: translateAuthError(error.message) }
       return { success: true }
     },
 
-    logout: () => setState((s) => ({ ...s, currentAccountId: null })),
+    logout: async () => {
+      await supabase.auth.signOut()
+    },
 
-    resetData: () => setState((s) => ({ ...buildInitialState(), currentAccountId: s.currentAccountId })),
+    resetData: () => setState(buildInitialState()),
 
     confirmarPagamento: (pagamentoId, confirmadoPorId, metodo) =>
       setState((s) => ({

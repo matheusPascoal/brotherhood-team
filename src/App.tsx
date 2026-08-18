@@ -82,7 +82,14 @@ function AppShell({ currentAccount }: { currentAccount: Profile }) {
 }
 
 function AuthGate() {
-  const { currentAccount } = useAppData()
+  const { currentAccount, authLoading } = useAppData()
+  if (authLoading) {
+    return (
+      <div className="login-screen">
+        <p>Carregando...</p>
+      </div>
+    )
+  }
   return currentAccount ? <AppShell currentAccount={currentAccount} /> : <LoginPage />
 }
 

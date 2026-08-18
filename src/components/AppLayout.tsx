@@ -56,7 +56,7 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ tabs, activeTab, onTabChange, children }: AppLayoutProps) {
-  const { profiles, currentAccount, switchAccount, resetData, logout } = useAppData()
+  const { currentAccount, resetData, logout } = useAppData()
 
   if (!currentAccount) return null
 
@@ -95,19 +95,7 @@ export function AppLayout({ tabs, activeTab, onTabChange, children }: AppLayoutP
               </span>
               <span className="app-header__account-email">{currentAccount.email}</span>
             </div>
-            <select
-              aria-label="Conta de demonstração"
-              className="app-header__account-select"
-              value={currentAccount.id}
-              onChange={(e) => switchAccount(e.target.value)}
-            >
-              {profiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.fullName} ({ROLE_LABEL[p.role]})
-                </option>
-              ))}
-            </select>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={logout} title="Sair" aria-label="Sair">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => logout()} title="Sair" aria-label="Sair">
               <LogOut size={16} strokeWidth={2} />
             </button>
           </div>
