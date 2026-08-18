@@ -1,0 +1,135 @@
+:root {
+  /* superfícies */
+  --color-bg-base: #08090e;
+  --color-bg-surface: #131728;
+  --color-bg-surface-2: #1b2233;
+  --color-border-subtle: #242c42;
+  --color-border-strong: #343e58;
+
+  /* marca / ação */
+  --color-primary: #155cff;
+  --color-primary-hover: #3b78ff;
+  --color-primary-bg-soft: #0f1c46;
+  --color-accent-gold: #ffc800;
+  --color-accent-gold-bg-soft: #2c2a1b;
+
+  /* status */
+  --color-success: #00d292;
+  --color-success-bg-soft: #11292d;
+  --color-danger: #e8595c;
+  --color-danger-bg-soft: #271a24;
+  --color-warning: #ffc800;
+  --color-warning-bg-soft: #2c2a1b;
+
+  /* texto */
+  --color-text-primary: #f5f8ff;
+  --color-text-secondary: #b5bdcf;
+  --color-text-muted: #8a93a6;
+  --color-text-on-primary: #ffffff;
+  --color-text-on-gold: #161200;
+
+  /* espaçamento */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* raio */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* sombra */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--color-border-subtle);
+  --shadow-glow-primary: 0 0 24px rgba(21, 92, 255, 0.25);
+  --shadow-glow-gold: 0 0 24px rgba(255, 200, 0, 0.2);
+
+  /* tipografia */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --text-display: 28px;
+  --text-h1: 22px;
+  --text-h2: 16px;
+  --text-body: 14px;
+  --text-small: 13px;
+  --text-label: 11px;
+
+  font: 400 var(--text-body) / 145% var(--font-sans);
+  color-scheme: dark;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-base);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg-base);
+  color: var(--color-text-secondary);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+h1 {
+  font-size: var(--text-h1);
+}
+
+h2 {
+  font-size: var(--text-h2);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--color-primary);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: var(--text-body);
+  color: var(--color-text-primary);
+}
+
+::placeholder {
+  color: var(--color-text-muted);
+}
+
+.uppercase-label {
+  font-size: var(--text-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

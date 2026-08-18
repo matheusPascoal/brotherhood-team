@@ -1,0 +1,9 @@
+alter table profiles enable row level security;
+alter table professores enable row level security;
+alter table modalidades enable row level security;
+alter table professor_modalidades enable row level security;
+alter table alunos enable row level security;
+alter table turmas enable row level security;
+alter table pagamentos enable row level security;
+alter table presencas enable row level security;
+alter table graduacoes_historico enable row level security;
