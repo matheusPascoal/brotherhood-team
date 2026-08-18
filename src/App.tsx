@@ -4,6 +4,7 @@ import { AppLayout } from './components/AppLayout'
 import { AdminOverviewPage } from './features/admin/AdminOverviewPage'
 import { ProfessoresPage } from './features/admin/ProfessoresPage'
 import { AlunosPage } from './features/admin/AlunosPage'
+import { ModalidadesPage } from './features/admin/ModalidadesPage'
 import { PagamentosPage } from './features/admin/PagamentosPage'
 import { RelatoriosPage } from './features/admin/RelatoriosPage'
 import { EstoquePage } from './features/admin/EstoquePage'
@@ -21,6 +22,7 @@ const TABS_BY_ROLE: Record<Role, { key: string; label: string }[]> = {
     { key: 'visao-geral', label: 'Visão Geral' },
     { key: 'professores', label: 'Professores' },
     { key: 'alunos', label: 'Todos Alunos' },
+    { key: 'modalidades', label: 'Modalidades' },
     { key: 'pagamentos', label: 'Pagamentos Confirmados' },
     { key: 'relatorios', label: 'Relatórios Mensais' },
     { key: 'estoque', label: 'Controle de Estoque' },
@@ -58,6 +60,7 @@ function AppShell({ currentAccount }: { currentAccount: Profile }) {
       'visao-geral': () => <AdminOverviewPage onNavigate={setActiveTab} />,
       professores: ProfessoresPage,
       alunos: AlunosPage,
+      modalidades: ModalidadesPage,
       pagamentos: PagamentosPage,
       relatorios: RelatoriosPage,
       estoque: EstoquePage,

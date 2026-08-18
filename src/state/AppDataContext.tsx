@@ -73,6 +73,11 @@ export interface NovoAlunoInput {
   diaVencimento: number
 }
 
+export interface NovoModalidadeInput {
+  nome: string
+  faixasOrdem: string[]
+}
+
 export interface NovoMaterialInput {
   nome: string
   categoria?: string
@@ -100,9 +105,14 @@ interface AppDataContextValue extends AppDataState {
   createProfessor: (input: NovoProfessorInput) => void
   updateProfessor: (professorId: string, updates: Partial<NovoProfessorInput>) => void
   setProfessorStatus: (professorId: string, status: AccountStatus) => void
+  deleteProfessor: (professorId: string) => { success: boolean; error?: string }
   createAluno: (input: NovoAlunoInput) => void
   updateAluno: (alunoId: string, updates: Partial<NovoAlunoInput>) => void
   setAlunoStatus: (alunoId: string, status: AlunoStatus) => void
+  deleteAluno: (alunoId: string) => { success: boolean; error?: string }
+  createModalidade: (input: NovoModalidadeInput) => void
+  updateModalidade: (modalidadeId: string, updates: Partial<NovoModalidadeInput>) => void
+  deleteModalidade: (modalidadeId: string) => { success: boolean; error?: string }
   createTurma: (input: NovaTurmaInput) => void
   updateTurma: (turmaId: string, updates: Partial<NovaTurmaInput>) => void
   deleteTurma: (turmaId: string) => void
@@ -268,6 +278,26 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         professores: s.professores.map((p) => (p.id === professorId ? { ...p, status } : p)),
       })),
 
+    // Espelha as FKs "on delete restrict" de turmas.professor_id e
+    // alunos.professor_id (migrations 0007/0008): só remove se nada apontar
+    // para este professor. Remove também o profile — conta de acesso some.
+    deleteProfessor: (professorId) => {
+      const professor = state.professores.find((p) => p.id === professorId)
+      if (!professor) return { success: false, error: 'Professor não encontrado.' }
+      if (state.turmas.some((t) => t.professorId === professor.profileId)) {
+        return { success: false, error: 'Não é possível remover: há turmas vinculadas a este professor.' }
+      }
+      if (state.alunos.some((a) => a.professorId === professor.profileId)) {
+        return { success: false, error: 'Não é possível remover: há alunos vinculados a este professor.' }
+      }
+      setState((s) => ({
+        ...s,
+        professores: s.professores.filter((p) => p.id !== professorId),
+        profiles: s.profiles.filter((p) => p.id !== professor.profileId),
+      }))
+      return { success: true }
+    },
+
     createAluno: (input) =>
       setState((s) => {
         const profileId = crypto.randomUUID()
@@ -317,6 +347,53 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         ...s,
         alunos: s.alunos.map((a) => (a.id === alunoId ? { ...a, status } : a)),
       })),
+
+    // Espelha pagamentos.aluno_id "on delete restrict" (migration 0009): só
+    // remove se não houver pagamento registrado. presencas/graduacoes_historico
+    // cascateiam (migrations 0010/0011), assim como o profile (login próprio).
+    deleteAluno: (alunoId) => {
+      const aluno = state.alunos.find((a) => a.id === alunoId)
+      if (!aluno) return { success: false, error: 'Aluno não encontrado.' }
+      if (state.pagamentos.some((p) => p.alunoId === alunoId)) {
+        return { success: false, error: 'Não é possível remover: há pagamentos registrados para este aluno.' }
+      }
+      setState((s) => ({
+        ...s,
+        alunos: s.alunos.filter((a) => a.id !== alunoId),
+        presencas: s.presencas.filter((p) => p.alunoId !== alunoId),
+        graduacoesHistorico: s.graduacoesHistorico.filter((g) => g.alunoId !== alunoId),
+        profiles: aluno.profileId ? s.profiles.filter((p) => p.id !== aluno.profileId) : s.profiles,
+      }))
+      return { success: true }
+    },
+
+    createModalidade: (input) =>
+      setState((s) => ({
+        ...s,
+        modalidades: [...s.modalidades, { id: crypto.randomUUID(), ...input }],
+      })),
+
+    updateModalidade: (modalidadeId, updates) =>
+      setState((s) => ({
+        ...s,
+        modalidades: s.modalidades.map((m) => (m.id === modalidadeId ? { ...m, ...updates } : m)),
+      })),
+
+    // Espelha professor_modalidades/alunos/turmas.modalidade_id "on delete
+    // restrict" (migrations 0006/0007/0008).
+    deleteModalidade: (modalidadeId) => {
+      if (state.professores.some((p) => p.modalidadeIds.includes(modalidadeId))) {
+        return { success: false, error: 'Não é possível remover: há professores vinculados a esta modalidade.' }
+      }
+      if (state.alunos.some((a) => a.modalidadeId === modalidadeId)) {
+        return { success: false, error: 'Não é possível remover: há alunos vinculados a esta modalidade.' }
+      }
+      if (state.turmas.some((t) => t.modalidadeId === modalidadeId)) {
+        return { success: false, error: 'Não é possível remover: há turmas vinculadas a esta modalidade.' }
+      }
+      setState((s) => ({ ...s, modalidades: s.modalidades.filter((m) => m.id !== modalidadeId) }))
+      return { success: true }
+    },
 
     createTurma: (input) =>
       setState((s) => ({

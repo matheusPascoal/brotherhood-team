@@ -31,7 +31,8 @@ const EMPTY_FORM: NovoAlunoInput = {
 }
 
 export function AlunosPage() {
-  const { profiles, professores, alunos, modalidades, pagamentos, createAluno, updateAluno, setAlunoStatus } = useAppData()
+  const { profiles, professores, alunos, modalidades, pagamentos, createAluno, updateAluno, setAlunoStatus, deleteAluno } =
+    useAppData()
   const [busca, setBusca] = useState('')
   const [filtroProfessor, setFiltroProfessor] = useState('')
   const [filtroStatusFinanceiro, setFiltroStatusFinanceiro] = useState('')
@@ -87,6 +88,12 @@ export function AlunosPage() {
       createAluno(form)
     }
     setFormOpen(false)
+  }
+
+  function remover(alunoId: string) {
+    if (!window.confirm('Remover este aluno? Essa ação não pode ser desfeita.')) return
+    const result = deleteAluno(alunoId)
+    if (!result.success) alert(result.error)
   }
 
   return (
@@ -253,6 +260,9 @@ export function AlunosPage() {
                     onClick={() => setAlunoStatus(aluno.id, aluno.status === 'ativo' ? 'inativo' : 'ativo')}
                   >
                     {aluno.status === 'ativo' ? 'Inativar' : 'Reativar'}
+                  </button>
+                  <button type="button" className="btn-danger" onClick={() => remover(aluno.id)}>
+                    Remover
                   </button>
                 </td>
               </tr>

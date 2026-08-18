@@ -5,7 +5,8 @@ import { Badge } from '../../components/Badge'
 const EMPTY_FORM: NovoProfessorInput = { fullName: '', email: '', phone: '', comissaoPercentual: 50, modalidadeIds: [] }
 
 export function ProfessoresPage() {
-  const { profiles, professores, modalidades, alunos, createProfessor, updateProfessor, setProfessorStatus } = useAppData()
+  const { profiles, professores, modalidades, alunos, createProfessor, updateProfessor, setProfessorStatus, deleteProfessor } =
+    useAppData()
   const [busca, setBusca] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -50,6 +51,12 @@ export function ProfessoresPage() {
       createProfessor(form)
     }
     setFormOpen(false)
+  }
+
+  function remover(professorId: string) {
+    if (!window.confirm('Remover este professor? Essa ação não pode ser desfeita.')) return
+    const result = deleteProfessor(professorId)
+    if (!result.success) alert(result.error)
   }
 
   function toggleModalidade(modalidadeId: string) {
@@ -164,6 +171,9 @@ export function ProfessoresPage() {
                   onClick={() => setProfessorStatus(professor.id, professor.status === 'ativo' ? 'inativo' : 'ativo')}
                 >
                   {professor.status === 'ativo' ? 'Inativar' : 'Reativar'}
+                </button>
+                <button type="button" className="btn-danger" onClick={() => remover(professor.id)}>
+                  Remover
                 </button>
               </td>
             </tr>

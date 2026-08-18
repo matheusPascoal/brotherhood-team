@@ -34,7 +34,8 @@ function emptyForm(professorId: string): NovoAlunoInput {
 }
 
 export function AlunosPagamentosPage() {
-  const { currentAccount, profiles, alunos, modalidades, pagamentos, createAluno, updateAluno, confirmarPagamento } = useAppData()
+  const { currentAccount, profiles, alunos, modalidades, pagamentos, createAluno, updateAluno, setAlunoStatus, confirmarPagamento } =
+    useAppData()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<NovoAlunoInput>(emptyForm(currentAccount?.id ?? ''))
@@ -164,6 +165,7 @@ export function AlunosPagamentosPage() {
             <th>Mensalidade</th>
             <th>Vencimento</th>
             <th>Status do mês</th>
+            <th>Status</th>
             <th></th>
           </tr>
         </thead>
@@ -180,9 +182,20 @@ export function AlunosPagamentosPage() {
                 <td>
                   <Badge tone={STATUS_FINANCEIRO_TONE[statusFinanceiro]}>{STATUS_FINANCEIRO_LABEL[statusFinanceiro]}</Badge>
                 </td>
+                <td>
+                  <Badge tone={aluno.status === 'ativo' ? 'success' : 'neutral'}>
+                    {aluno.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                  </Badge>
+                </td>
                 <td className="table__actions">
                   <button type="button" onClick={() => abrirEdicao(aluno.id)}>
                     Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAlunoStatus(aluno.id, aluno.status === 'ativo' ? 'inativo' : 'ativo')}
+                  >
+                    {aluno.status === 'ativo' ? 'Inativar' : 'Reativar'}
                   </button>
                   {statusFinanceiro === 'inadimplente' &&
                     (confirmandoId === aluno.id ? (

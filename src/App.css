@@ -244,6 +244,26 @@
   color: var(--color-text-primary);
 }
 
+/* usado nos botões "Remover" das tabelas — mesmo tamanho dos botões
+   genéricos (Editar/Inativar), só com a cor de destrutivo. */
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--color-danger-bg-soft);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger-bg-soft);
+}
+
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--color-danger);
+}
+
 .btn-sm {
   padding: 6px 12px;
   font-size: 12px;
