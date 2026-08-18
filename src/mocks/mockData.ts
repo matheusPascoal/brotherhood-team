@@ -30,6 +30,9 @@ export const modalidades: Modalidade[] = [
   { id: 'modalidade-muaythai', nome: 'Muay Thai', faixasOrdem: ['Branca', 'Amarela', 'Verde', 'Azul', 'Marrom', 'Preta'] },
   { id: 'modalidade-judo', nome: 'Judô', faixasOrdem: ['Branca', 'Cinza', 'Azul', 'Amarela', 'Laranja', 'Verde', 'Roxa', 'Marrom', 'Preta'] },
   { id: 'modalidade-karate', nome: 'Karate-Dô', faixasOrdem: ['Branca', 'Amarela', 'Laranja', 'Verde', 'Azul', 'Marrom', 'Preta'] },
+  { id: 'modalidade-kickboxing', nome: 'Kickboxing', faixasOrdem: ['Branca', 'Amarela', 'Laranja', 'Verde', 'Azul', 'Marrom', 'Preta'] },
+  { id: 'modalidade-taekwondo', nome: 'Taekwondo', faixasOrdem: ['Branca', 'Amarela', 'Verde', 'Azul', 'Vermelha', 'Preta'] },
+  { id: 'modalidade-musculacao', nome: 'Musculação', faixasOrdem: [] },
 ]
 
 export const profiles: Profile[] = [

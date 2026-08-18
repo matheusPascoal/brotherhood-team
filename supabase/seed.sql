@@ -11,7 +11,10 @@ insert into modalidades (nome, faixas_ordem) values
   ('Jiu-Jitsu (BJJ)', '["Branca", "Azul", "Roxa", "Marrom", "Preta"]'),
   ('Muay Thai', '["Branca", "Amarela", "Verde", "Azul", "Marrom", "Preta"]'),
   ('Judô', '["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"]'),
-  ('Karate-Dô', '["Branca", "Amarela", "Laranja", "Verde", "Azul", "Marrom", "Preta"]');
+  ('Karate-Dô', '["Branca", "Amarela", "Laranja", "Verde", "Azul", "Marrom", "Preta"]'),
+  ('Kickboxing', '["Branca", "Amarela", "Laranja", "Verde", "Azul", "Marrom", "Preta"]'),
+  ('Taekwondo', '["Branca", "Amarela", "Verde", "Azul", "Vermelha", "Preta"]'),
+  ('Musculação', '[]');
 
 -- Catálogo de materiais também não depende de auth.users, então já pode ser
 -- semeado. Movimentações de estoque de exemplo ficam para a Fase 2, junto
