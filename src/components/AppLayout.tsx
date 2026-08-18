@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   RotateCcw,
   LogOut,
+  KeyRound,
   ChevronDown,
   LayoutDashboard,
   GraduationCap,
@@ -17,6 +18,7 @@ import {
 import { useAppData } from '../state/AppDataContext'
 import type { Role } from '../domain/types'
 import { Badge, type BadgeTone } from './Badge'
+import { ChangePasswordModal } from './ChangePasswordModal'
 
 const ROLE_LABEL: Record<Role, string> = {
   admin: 'Admin',
@@ -59,6 +61,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ tabs, activeTab, onTabChange, children }: AppLayoutProps) {
   const { currentAccount, resetData, logout } = useAppData()
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
 
   if (!currentAccount) return null
 
@@ -97,12 +100,23 @@ export function AppLayout({ tabs, activeTab, onTabChange, children }: AppLayoutP
               </span>
               <span className="app-header__account-email">{currentAccount.email}</span>
             </div>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setChangePasswordOpen(true)}
+              title="Alterar senha"
+              aria-label="Alterar senha"
+            >
+              <KeyRound size={16} strokeWidth={2} />
+            </button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => logout()} title="Sair" aria-label="Sair">
               <LogOut size={16} strokeWidth={2} />
             </button>
           </div>
         </div>
       </header>
+
+      {changePasswordOpen && <ChangePasswordModal onClose={() => setChangePasswordOpen(false)} />}
 
       <nav className="app-tabs">
         {tabs.map((tab) => {

@@ -40,6 +40,7 @@ interface AppDataState {
 export interface NovoProfessorInput {
   fullName: string
   email: string
+  senha: string
   phone?: string
   comissaoPercentual: number
   modalidadeIds: string[]
@@ -64,6 +65,7 @@ export interface RegistroChamada {
 export interface NovoAlunoInput {
   fullName: string
   email: string
+  senha: string
   cpf: string
   professorId: string
   modalidadeId: string
@@ -100,13 +102,14 @@ interface AppDataContextValue extends AppDataState {
   authLoading: boolean
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
+  changePassword: (novaSenha: string) => Promise<{ success: boolean; error?: string }>
   resetData: () => void
   confirmarPagamento: (pagamentoId: string, confirmadoPorId: string, metodo: MetodoPagamento) => void
-  createProfessor: (input: NovoProfessorInput) => void
+  createProfessor: (input: NovoProfessorInput) => Promise<{ success: boolean; error?: string }>
   updateProfessor: (professorId: string, updates: Partial<NovoProfessorInput>) => void
   setProfessorStatus: (professorId: string, status: AccountStatus) => void
   deleteProfessor: (professorId: string) => { success: boolean; error?: string }
-  createAluno: (input: NovoAlunoInput) => void
+  createAluno: (input: NovoAlunoInput) => Promise<{ success: boolean; error?: string }>
   updateAluno: (alunoId: string, updates: Partial<NovoAlunoInput>) => void
   setAlunoStatus: (alunoId: string, status: AlunoStatus) => void
   deleteAluno: (alunoId: string) => { success: boolean; error?: string }
@@ -120,6 +123,7 @@ interface AppDataContextValue extends AppDataState {
   createMaterial: (input: NovoMaterialInput) => void
   updateMaterial: (materialId: string, updates: Partial<NovoMaterialInput>) => void
   setMaterialStatus: (materialId: string, status: AccountStatus) => void
+  deleteMaterial: (materialId: string) => { success: boolean; error?: string }
   registrarMovimentoEstoque: (input: NovoMovimentoEstoqueInput, registradoPorId: string) => void
 }
 
@@ -161,6 +165,38 @@ function mapProfileRow(row: {
 function translateAuthError(message: string): string {
   if (message.toLowerCase().includes('invalid login credentials')) return 'E-mail ou senha inválidos.'
   return message
+}
+
+interface AdminCreateUserInput {
+  email: string
+  password: string
+  fullName: string
+  phone?: string
+  role: 'professor' | 'aluno'
+}
+
+// Chama a Edge Function admin-create-user (service_role fica só no servidor
+// da function — nunca no frontend). Ela cria o auth.users real com a senha
+// definida pelo Admin e promove profiles.role, e retorna o id real do
+// usuário, que passa a ser o profileId usado nos registros mock.
+async function invokeAdminCreateUser(input: AdminCreateUserInput): Promise<{ id?: string; error?: string }> {
+  const { data, error } = await supabase.functions.invoke<{ id?: string; error?: string }>('admin-create-user', {
+    body: input,
+  })
+  if (error) {
+    const context = (error as { context?: Response }).context
+    if (context) {
+      try {
+        const body = await context.json()
+        if (body?.error) return { error: body.error }
+      } catch {
+        // resposta sem corpo JSON — cai para a mensagem genérica abaixo
+      }
+    }
+    return { error: error.message }
+  }
+  if (data?.error) return { error: data.error }
+  return { id: data?.id }
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null)
@@ -223,6 +259,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut()
     },
 
+    changePassword: async (novaSenha) => {
+      if (novaSenha.length < 6) return { success: false, error: 'A senha precisa ter pelo menos 6 caracteres.' }
+      const { error } = await supabase.auth.updateUser({ password: novaSenha })
+      if (error) return { success: false, error: translateAuthError(error.message) }
+      return { success: true }
+    },
+
     resetData: () => setState(buildInitialState()),
 
     confirmarPagamento: (pagamentoId, confirmadoPorId, metodo) =>
@@ -235,22 +278,29 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         ),
       })),
 
-    createProfessor: (input) =>
-      setState((s) => {
-        const profileId = crypto.randomUUID()
-        const professorId = crypto.randomUUID()
-        return {
-          ...s,
-          profiles: [
-            ...s.profiles,
-            { id: profileId, fullName: input.fullName, email: input.email, phone: input.phone, role: 'professor', status: 'ativo' },
-          ],
-          professores: [
-            ...s.professores,
-            { id: professorId, profileId, comissaoPercentual: input.comissaoPercentual, modalidadeIds: input.modalidadeIds, status: 'ativo' },
-          ],
-        }
-      }),
+    createProfessor: async (input) => {
+      const result = await invokeAdminCreateUser({
+        email: input.email,
+        password: input.senha,
+        fullName: input.fullName,
+        phone: input.phone,
+        role: 'professor',
+      })
+      if (!result.id) return { success: false, error: result.error ?? 'Não foi possível criar o professor.' }
+      const profileId = result.id
+      setState((s) => ({
+        ...s,
+        profiles: [
+          ...s.profiles,
+          { id: profileId, fullName: input.fullName, email: input.email, phone: input.phone, role: 'professor', status: 'ativo' },
+        ],
+        professores: [
+          ...s.professores,
+          { id: crypto.randomUUID(), profileId, comissaoPercentual: input.comissaoPercentual, modalidadeIds: input.modalidadeIds, status: 'ativo' },
+        ],
+      }))
+      return { success: true }
+    },
 
     updateProfessor: (professorId, updates) =>
       setState((s) => ({
@@ -298,30 +348,36 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       return { success: true }
     },
 
-    createAluno: (input) =>
-      setState((s) => {
-        const profileId = crypto.randomUUID()
-        const alunoId = crypto.randomUUID()
-        return {
-          ...s,
-          profiles: [...s.profiles, { id: profileId, fullName: input.fullName, email: input.email, role: 'aluno', status: 'ativo' }],
-          alunos: [
-            ...s.alunos,
-            {
-              id: alunoId,
-              profileId,
-              cpf: input.cpf,
-              professorId: input.professorId,
-              modalidadeId: input.modalidadeId,
-              faixaAtual: input.faixaAtual,
-              grauAtual: input.grauAtual,
-              mensalidadeValor: input.mensalidadeValor,
-              diaVencimento: input.diaVencimento,
-              status: 'ativo',
-            },
-          ],
-        }
-      }),
+    createAluno: async (input) => {
+      const result = await invokeAdminCreateUser({
+        email: input.email,
+        password: input.senha,
+        fullName: input.fullName,
+        role: 'aluno',
+      })
+      if (!result.id) return { success: false, error: result.error ?? 'Não foi possível criar o aluno.' }
+      const profileId = result.id
+      setState((s) => ({
+        ...s,
+        profiles: [...s.profiles, { id: profileId, fullName: input.fullName, email: input.email, role: 'aluno', status: 'ativo' }],
+        alunos: [
+          ...s.alunos,
+          {
+            id: crypto.randomUUID(),
+            profileId,
+            cpf: input.cpf,
+            professorId: input.professorId,
+            modalidadeId: input.modalidadeId,
+            faixaAtual: input.faixaAtual,
+            grauAtual: input.grauAtual,
+            mensalidadeValor: input.mensalidadeValor,
+            diaVencimento: input.diaVencimento,
+            status: 'ativo',
+          },
+        ],
+      }))
+      return { success: true }
+    },
 
     updateAluno: (alunoId, updates) =>
       setState((s) => ({
@@ -452,6 +508,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         ...s,
         materiais: s.materiais.map((m) => (m.id === materialId ? { ...m, status } : m)),
       })),
+
+    // Espelha movimentos_estoque.material_id "on delete restrict" (migration
+    // 0027): só remove se não houver movimentação registrada para o material.
+    deleteMaterial: (materialId) => {
+      if (state.movimentosEstoque.some((m) => m.materialId === materialId)) {
+        return { success: false, error: 'Não é possível remover: há movimentações de estoque registradas para este material.' }
+      }
+      setState((s) => ({ ...s, materiais: s.materiais.filter((m) => m.id !== materialId) }))
+      return { success: true }
+    },
 
     registrarMovimentoEstoque: (input, registradoPorId) =>
       setState((s) => ({

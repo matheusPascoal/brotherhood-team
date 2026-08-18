@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAppData, type NovoProfessorInput } from '../../state/AppDataContext'
 import { Badge } from '../../components/Badge'
 
-const EMPTY_FORM: NovoProfessorInput = { fullName: '', email: '', phone: '', comissaoPercentual: 50, modalidadeIds: [] }
+const EMPTY_FORM: NovoProfessorInput = { fullName: '', email: '', senha: '', phone: '', comissaoPercentual: 50, modalidadeIds: [] }
 
 export function ProfessoresPage() {
   const { profiles, professores, modalidades, alunos, createProfessor, updateProfessor, setProfessorStatus, deleteProfessor } =
@@ -11,6 +11,8 @@ export function ProfessoresPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<NovoProfessorInput>(EMPTY_FORM)
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
 
   const nomeDoProfile = (profileId: string) => profiles.find((p) => p.id === profileId)?.fullName ?? '—'
   const emailDoProfile = (profileId: string) => profiles.find((p) => p.id === profileId)?.email ?? '—'
@@ -26,6 +28,7 @@ export function ProfessoresPage() {
   function abrirCadastro() {
     setEditingId(null)
     setForm(EMPTY_FORM)
+    setErro(null)
     setFormOpen(true)
   }
 
@@ -36,19 +39,32 @@ export function ProfessoresPage() {
     setForm({
       fullName: nomeDoProfile(professor.profileId),
       email: emailDoProfile(professor.profileId),
+      senha: '',
       phone: profiles.find((p) => p.id === professor.profileId)?.phone ?? '',
       comissaoPercentual: professor.comissaoPercentual,
       modalidadeIds: professor.modalidadeIds,
     })
+    setErro(null)
     setFormOpen(true)
   }
 
-  function salvar() {
+  async function salvar() {
     if (!form.fullName || !form.email) return
     if (editingId) {
       updateProfessor(editingId, form)
-    } else {
-      createProfessor(form)
+      setFormOpen(false)
+      return
+    }
+    if (form.senha.length < 6) {
+      setErro('A senha precisa ter pelo menos 6 caracteres.')
+      return
+    }
+    setSalvando(true)
+    const result = await createProfessor(form)
+    setSalvando(false)
+    if (!result.success) {
+      setErro(result.error ?? 'Não foi possível criar o professor.')
+      return
     }
     setFormOpen(false)
   }
@@ -96,6 +112,17 @@ export function ProfessoresPage() {
               E-mail de acesso
               <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </label>
+            {!editingId && (
+              <label>
+                Senha inicial
+                <input
+                  type="password"
+                  value={form.senha}
+                  onChange={(e) => setForm({ ...form, senha: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </label>
+            )}
             <label>
               Telefone
               <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
@@ -124,9 +151,10 @@ export function ProfessoresPage() {
               ))}
             </fieldset>
           </div>
+          {erro && <p className="empty-state">{erro}</p>}
           <div className="form-actions">
-            <button type="button" className="btn btn-primary" onClick={salvar}>
-              Salvar
+            <button type="button" className="btn btn-primary" onClick={salvar} disabled={salvando}>
+              {salvando ? 'Salvando...' : 'Salvar'}
             </button>
             <button type="button" className="btn btn-secondary" onClick={() => setFormOpen(false)}>
               Cancelar

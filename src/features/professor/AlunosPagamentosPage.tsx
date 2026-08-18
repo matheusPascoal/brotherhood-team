@@ -23,6 +23,7 @@ function emptyForm(professorId: string): NovoAlunoInput {
   return {
     fullName: '',
     email: '',
+    senha: '',
     cpf: '',
     professorId,
     modalidadeId: '',
@@ -41,6 +42,8 @@ export function AlunosPagamentosPage() {
   const [form, setForm] = useState<NovoAlunoInput>(emptyForm(currentAccount?.id ?? ''))
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
   const [metodoSelecionado, setMetodoSelecionado] = useState<MetodoPagamento>('pix')
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
 
   if (!currentAccount) return null
   const professorId = currentAccount.id
@@ -52,6 +55,7 @@ export function AlunosPagamentosPage() {
   function abrirCadastro() {
     setEditingId(null)
     setForm(emptyForm(professorId))
+    setErro(null)
     setFormOpen(true)
   }
 
@@ -62,6 +66,7 @@ export function AlunosPagamentosPage() {
     setForm({
       fullName: nomeDoProfile(aluno.profileId),
       email: profiles.find((p) => p.id === aluno.profileId)?.email ?? '',
+      senha: '',
       cpf: aluno.cpf,
       professorId: aluno.professorId,
       modalidadeId: aluno.modalidadeId,
@@ -70,16 +75,28 @@ export function AlunosPagamentosPage() {
       mensalidadeValor: aluno.mensalidadeValor,
       diaVencimento: aluno.diaVencimento,
     })
+    setErro(null)
     setFormOpen(true)
   }
 
-  function salvar() {
+  async function salvar() {
     if (!form.fullName || !form.email || !/^\d{11}$/.test(form.cpf) || !form.modalidadeId) return
     if (form.diaVencimento < 1 || form.diaVencimento > 31) return
     if (editingId) {
       updateAluno(editingId, form)
-    } else {
-      createAluno(form)
+      setFormOpen(false)
+      return
+    }
+    if (form.senha.length < 6) {
+      setErro('A senha precisa ter pelo menos 6 caracteres.')
+      return
+    }
+    setSalvando(true)
+    const result = await createAluno(form)
+    setSalvando(false)
+    if (!result.success) {
+      setErro(result.error ?? 'Não foi possível criar o aluno.')
+      return
     }
     setFormOpen(false)
   }
@@ -113,6 +130,17 @@ export function AlunosPagamentosPage() {
               E-mail
               <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </label>
+            {!editingId && (
+              <label>
+                Senha inicial
+                <input
+                  type="password"
+                  value={form.senha}
+                  onChange={(e) => setForm({ ...form, senha: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </label>
+            )}
             <label>
               CPF (somente números)
               <input value={form.cpf} maxLength={11} onChange={(e) => setForm({ ...form, cpf: e.target.value.replace(/\D/g, '') })} />
@@ -145,9 +173,10 @@ export function AlunosPagamentosPage() {
               <input type="number" min={1} max={31} value={form.diaVencimento} onChange={(e) => setForm({ ...form, diaVencimento: Number(e.target.value) })} />
             </label>
           </div>
+          {erro && <p className="empty-state">{erro}</p>}
           <div className="form-actions">
-            <button type="button" className="btn btn-primary" onClick={salvar}>
-              Salvar
+            <button type="button" className="btn btn-primary" onClick={salvar} disabled={salvando}>
+              {salvando ? 'Salvando...' : 'Salvar'}
             </button>
             <button type="button" className="btn btn-secondary" onClick={() => setFormOpen(false)}>
               Cancelar

@@ -16,8 +16,16 @@ const EMPTY_MOVIMENTO_FORM: Omit<NovoMovimentoEstoqueInput, 'materialId'> = {
 }
 
 export function EstoquePage() {
-  const { materiais, movimentosEstoque, currentAccount, createMaterial, updateMaterial, setMaterialStatus, registrarMovimentoEstoque } =
-    useAppData()
+  const {
+    materiais,
+    movimentosEstoque,
+    currentAccount,
+    createMaterial,
+    updateMaterial,
+    setMaterialStatus,
+    deleteMaterial,
+    registrarMovimentoEstoque,
+  } = useAppData()
 
   const [busca, setBusca] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -66,6 +74,12 @@ export function EstoquePage() {
       createMaterial(form)
     }
     setFormOpen(false)
+  }
+
+  function remover(materialId: string) {
+    if (!window.confirm('Remover este material? Essa ação não pode ser desfeita.')) return
+    const result = deleteMaterial(materialId)
+    if (!result.success) alert(result.error)
   }
 
   function abrirMovimentacao(materialId: string) {
@@ -295,6 +309,9 @@ export function EstoquePage() {
                   onClick={() => setMaterialStatus(item.material.id, item.material.status === 'ativo' ? 'inativo' : 'ativo')}
                 >
                   {item.material.status === 'ativo' ? 'Inativar' : 'Reativar'}
+                </button>
+                <button type="button" className="btn-danger" onClick={() => remover(item.material.id)}>
+                  Remover
                 </button>
               </td>
             </tr>

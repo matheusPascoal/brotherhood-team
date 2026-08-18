@@ -21,6 +21,7 @@ const STATUS_FINANCEIRO_LABEL: Record<string, string> = {
 const EMPTY_FORM: NovoAlunoInput = {
   fullName: '',
   email: '',
+  senha: '',
   cpf: '',
   professorId: '',
   modalidadeId: '',
@@ -39,6 +40,8 @@ export function AlunosPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<NovoAlunoInput>(EMPTY_FORM)
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
 
   const nomeDoProfile = (profileId?: string) => profiles.find((p) => p.id === profileId)?.fullName ?? '—'
   const emailDoProfile = (profileId?: string) => profiles.find((p) => p.id === profileId)?.email ?? '—'
@@ -58,6 +61,7 @@ export function AlunosPage() {
   function abrirCadastro() {
     setEditingId(null)
     setForm(EMPTY_FORM)
+    setErro(null)
     setFormOpen(true)
   }
 
@@ -68,6 +72,7 @@ export function AlunosPage() {
     setForm({
       fullName: nomeDoProfile(aluno.profileId),
       email: emailDoProfile(aluno.profileId),
+      senha: '',
       cpf: aluno.cpf,
       professorId: aluno.professorId,
       modalidadeId: aluno.modalidadeId,
@@ -76,16 +81,28 @@ export function AlunosPage() {
       mensalidadeValor: aluno.mensalidadeValor,
       diaVencimento: aluno.diaVencimento,
     })
+    setErro(null)
     setFormOpen(true)
   }
 
-  function salvar() {
+  async function salvar() {
     if (!form.fullName || !form.email || !/^\d{11}$/.test(form.cpf) || !form.professorId || !form.modalidadeId) return
     if (form.diaVencimento < 1 || form.diaVencimento > 31) return
     if (editingId) {
       updateAluno(editingId, form)
-    } else {
-      createAluno(form)
+      setFormOpen(false)
+      return
+    }
+    if (form.senha.length < 6) {
+      setErro('A senha precisa ter pelo menos 6 caracteres.')
+      return
+    }
+    setSalvando(true)
+    const result = await createAluno(form)
+    setSalvando(false)
+    if (!result.success) {
+      setErro(result.error ?? 'Não foi possível criar o aluno.')
+      return
     }
     setFormOpen(false)
   }
@@ -146,6 +163,17 @@ export function AlunosPage() {
               E-mail
               <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </label>
+            {!editingId && (
+              <label>
+                Senha inicial
+                <input
+                  type="password"
+                  value={form.senha}
+                  onChange={(e) => setForm({ ...form, senha: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </label>
+            )}
             <label>
               CPF (somente números)
               <input
@@ -211,9 +239,10 @@ export function AlunosPage() {
               />
             </label>
           </div>
+          {erro && <p className="empty-state">{erro}</p>}
           <div className="form-actions">
-            <button type="button" className="btn btn-primary" onClick={salvar}>
-              Salvar
+            <button type="button" className="btn btn-primary" onClick={salvar} disabled={salvando}>
+              {salvando ? 'Salvando...' : 'Salvar'}
             </button>
             <button type="button" className="btn btn-secondary" onClick={() => setFormOpen(false)}>
               Cancelar
