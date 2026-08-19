@@ -18,6 +18,8 @@ export function ModalidadesPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<NovoModalidadeInput>(EMPTY_FORM)
   const [faixasTexto, setFaixasTexto] = useState('')
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
 
   const linhas = modalidades.filter((m) => m.nome.toLowerCase().includes(busca.toLowerCase()))
 
@@ -30,6 +32,7 @@ export function ModalidadesPage() {
     setEditingId(null)
     setForm(EMPTY_FORM)
     setFaixasTexto('')
+    setErro(null)
     setFormOpen(true)
   }
 
@@ -39,23 +42,26 @@ export function ModalidadesPage() {
     setEditingId(modalidadeId)
     setForm({ nome: modalidade.nome, faixasOrdem: modalidade.faixasOrdem })
     setFaixasTexto(modalidade.faixasOrdem.join(', '))
+    setErro(null)
     setFormOpen(true)
   }
 
-  function salvar() {
+  async function salvar() {
     if (!form.nome) return
     const payload: NovoModalidadeInput = { nome: form.nome, faixasOrdem: parseFaixas(faixasTexto) }
-    if (editingId) {
-      updateModalidade(editingId, payload)
-    } else {
-      createModalidade(payload)
+    setSalvando(true)
+    const result = editingId ? await updateModalidade(editingId, payload) : await createModalidade(payload)
+    setSalvando(false)
+    if (!result.success) {
+      setErro(result.error ?? 'Não foi possível salvar a modalidade.')
+      return
     }
     setFormOpen(false)
   }
 
-  function remover(modalidadeId: string) {
+  async function remover(modalidadeId: string) {
     if (!window.confirm('Remover esta modalidade? Essa ação não pode ser desfeita.')) return
-    const result = deleteModalidade(modalidadeId)
+    const result = await deleteModalidade(modalidadeId)
     if (!result.success) alert(result.error)
   }
 
@@ -92,9 +98,10 @@ export function ModalidadesPage() {
               />
             </label>
           </div>
+          {erro && <p className="empty-state">{erro}</p>}
           <div className="form-actions">
-            <button type="button" className="btn btn-primary" onClick={salvar}>
-              Salvar
+            <button type="button" className="btn btn-primary" onClick={salvar} disabled={salvando}>
+              {salvando ? 'Salvando...' : 'Salvar'}
             </button>
             <button type="button" className="btn btn-secondary" onClick={() => setFormOpen(false)}>
               Cancelar

@@ -38,14 +38,15 @@ export function PresencasPage() {
     setObservacaoAula(registros[0]?.observacaoAula ?? '')
   }
 
-  function salvar() {
+  async function salvar() {
     if (!turmaId || !dataAula) return
-    salvarChamada(
+    const result = await salvarChamada(
       turmaId,
       dataAula,
       alunosDaTurma.map((a) => ({ alunoId: a.id, presente: presentesPorAluno[a.id] ?? false })),
       observacaoAula
     )
+    if (!result.success) alert(result.error)
   }
 
   return (

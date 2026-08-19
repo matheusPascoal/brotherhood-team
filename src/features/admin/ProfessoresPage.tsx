@@ -50,28 +50,23 @@ export function ProfessoresPage() {
 
   async function salvar() {
     if (!form.fullName || !form.email) return
-    if (editingId) {
-      updateProfessor(editingId, form)
-      setFormOpen(false)
-      return
-    }
-    if (form.senha.length < 6) {
+    if (!editingId && form.senha.length < 6) {
       setErro('A senha precisa ter pelo menos 6 caracteres.')
       return
     }
     setSalvando(true)
-    const result = await createProfessor(form)
+    const result = editingId ? await updateProfessor(editingId, form) : await createProfessor(form)
     setSalvando(false)
     if (!result.success) {
-      setErro(result.error ?? 'Não foi possível criar o professor.')
+      setErro(result.error ?? 'Não foi possível salvar o professor.')
       return
     }
     setFormOpen(false)
   }
 
-  function remover(professorId: string) {
+  async function remover(professorId: string) {
     if (!window.confirm('Remover este professor? Essa ação não pode ser desfeita.')) return
-    const result = deleteProfessor(professorId)
+    const result = await deleteProfessor(professorId)
     if (!result.success) alert(result.error)
   }
 
@@ -196,7 +191,10 @@ export function ProfessoresPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setProfessorStatus(professor.id, professor.status === 'ativo' ? 'inativo' : 'ativo')}
+                  onClick={async () => {
+                    const result = await setProfessorStatus(professor.id, professor.status === 'ativo' ? 'inativo' : 'ativo')
+                    if (!result.success) alert(result.error)
+                  }}
                 >
                   {professor.status === 'ativo' ? 'Inativar' : 'Reativar'}
                 </button>

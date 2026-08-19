@@ -60,7 +60,7 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ tabs, activeTab, onTabChange, children }: AppLayoutProps) {
-  const { currentAccount, resetData, logout } = useAppData()
+  const { currentAccount, refetchData, logout } = useAppData()
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
 
   if (!currentAccount) return null
@@ -84,9 +84,9 @@ export function AppLayout({ tabs, activeTab, onTabChange, children }: AppLayoutP
         </div>
 
         <div className="app-header__actions">
-          <button type="button" className="btn btn-secondary btn-sm" onClick={resetData} title="Restaurar dados iniciais">
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => refetchData()} title="Recarregar dados do Supabase">
             <RotateCcw size={14} strokeWidth={2} />
-            Reset Data
+            Atualizar
           </button>
 
           <div className="app-header__account">

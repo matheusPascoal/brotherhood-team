@@ -47,8 +47,9 @@ export function PagamentosPage() {
   if (!currentAccount) return null
   const confirmadoPorId = currentAccount.id
 
-  function confirmar(pagamentoId: string) {
-    confirmarPagamento(pagamentoId, confirmadoPorId, metodoSelecionado)
+  async function confirmar(pagamentoId: string) {
+    const result = await confirmarPagamento(pagamentoId, confirmadoPorId, metodoSelecionado)
+    if (!result.success) alert(result.error)
     setConfirmandoId(null)
   }
 

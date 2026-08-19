@@ -22,6 +22,8 @@ export function HorariosPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<NovaTurmaInput>(emptyForm(currentAccount?.id ?? ''))
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
 
   if (!currentAccount) return null
   const professorId = currentAccount.id
@@ -32,6 +34,7 @@ export function HorariosPage() {
   function abrirCadastro() {
     setEditingId(null)
     setForm(emptyForm(professorId))
+    setErro(null)
     setFormOpen(true)
   }
 
@@ -40,17 +43,26 @@ export function HorariosPage() {
     if (!turma) return
     setEditingId(turmaId)
     setForm({ ...turma })
+    setErro(null)
     setFormOpen(true)
   }
 
-  function salvar() {
+  async function salvar() {
     if (!form.nome || !form.modalidadeId || form.diasSemana.length === 0) return
-    if (editingId) {
-      updateTurma(editingId, form)
-    } else {
-      createTurma(form)
+    setSalvando(true)
+    const result = editingId ? await updateTurma(editingId, form) : await createTurma(form)
+    setSalvando(false)
+    if (!result.success) {
+      setErro(result.error ?? 'Não foi possível salvar a turma.')
+      return
     }
     setFormOpen(false)
+  }
+
+  async function remover(turmaId: string) {
+    if (!window.confirm('Excluir esta turma? Essa ação não pode ser desfeita.')) return
+    const result = await deleteTurma(turmaId)
+    if (!result.success) alert(result.error)
   }
 
   function toggleDia(dia: DiaSemana) {
@@ -120,9 +132,10 @@ export function HorariosPage() {
               ))}
             </fieldset>
           </div>
+          {erro && <p className="empty-state">{erro}</p>}
           <div className="form-actions">
-            <button type="button" className="btn btn-primary" onClick={salvar}>
-              Salvar
+            <button type="button" className="btn btn-primary" onClick={salvar} disabled={salvando}>
+              {salvando ? 'Salvando...' : 'Salvar'}
             </button>
             <button type="button" className="btn btn-secondary" onClick={() => setFormOpen(false)}>
               Cancelar
@@ -158,7 +171,7 @@ export function HorariosPage() {
                 <button type="button" onClick={() => abrirEdicao(turma.id)}>
                   Editar
                 </button>
-                <button type="button" onClick={() => deleteTurma(turma.id)}>
+                <button type="button" onClick={() => remover(turma.id)}>
                   Excluir
                 </button>
               </td>

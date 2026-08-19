@@ -32,6 +32,9 @@ export function EstoquePage() {
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<NovoMaterialInput>(EMPTY_MATERIAL_FORM)
 
+  const [erroMaterial, setErroMaterial] = useState<string | null>(null)
+  const [salvandoMaterial, setSalvandoMaterial] = useState(false)
+
   const [movimentoMaterialId, setMovimentoMaterialId] = useState<string | null>(null)
   const [movimentoForm, setMovimentoForm] = useState(EMPTY_MOVIMENTO_FORM)
   const [erroMovimento, setErroMovimento] = useState('')
@@ -49,6 +52,7 @@ export function EstoquePage() {
   function abrirCadastro() {
     setEditingId(null)
     setForm(EMPTY_MATERIAL_FORM)
+    setErroMaterial(null)
     setFormOpen(true)
   }
 
@@ -63,22 +67,25 @@ export function EstoquePage() {
       estoqueMinimo: material.estoqueMinimo,
       precoUnitario: material.precoUnitario ?? 0,
     })
+    setErroMaterial(null)
     setFormOpen(true)
   }
 
-  function salvarMaterial() {
+  async function salvarMaterial() {
     if (!form.nome || !form.unidade) return
-    if (editingId) {
-      updateMaterial(editingId, form)
-    } else {
-      createMaterial(form)
+    setSalvandoMaterial(true)
+    const result = editingId ? await updateMaterial(editingId, form) : await createMaterial(form)
+    setSalvandoMaterial(false)
+    if (!result.success) {
+      setErroMaterial(result.error ?? 'Não foi possível salvar o material.')
+      return
     }
     setFormOpen(false)
   }
 
-  function remover(materialId: string) {
+  async function remover(materialId: string) {
     if (!window.confirm('Remover este material? Essa ação não pode ser desfeita.')) return
-    const result = deleteMaterial(materialId)
+    const result = await deleteMaterial(materialId)
     if (!result.success) alert(result.error)
   }
 
@@ -88,7 +95,7 @@ export function EstoquePage() {
     setErroMovimento('')
   }
 
-  function salvarMovimento() {
+  async function salvarMovimento() {
     if (!movimentoMaterialId) return
     if (movimentoForm.quantidade <= 0) {
       setErroMovimento('Informe uma quantidade maior que zero.')
@@ -99,7 +106,11 @@ export function EstoquePage() {
       setErroMovimento(`Estoque insuficiente. Disponível: ${item.quantidadeAtual} ${item.material.unidade}.`)
       return
     }
-    registrarMovimentoEstoque({ materialId: movimentoMaterialId, ...movimentoForm }, registradoPorId)
+    const result = await registrarMovimentoEstoque({ materialId: movimentoMaterialId, ...movimentoForm }, registradoPorId)
+    if (!result.success) {
+      setErroMovimento(result.error ?? 'Não foi possível registrar a movimentação.')
+      return
+    }
     setMovimentoMaterialId(null)
   }
 
@@ -205,9 +216,10 @@ export function EstoquePage() {
               />
             </label>
           </div>
+          {erroMaterial && <p className="empty-state">{erroMaterial}</p>}
           <div className="form-actions">
-            <button type="button" className="btn btn-primary" onClick={salvarMaterial}>
-              Salvar
+            <button type="button" className="btn btn-primary" onClick={salvarMaterial} disabled={salvandoMaterial}>
+              {salvandoMaterial ? 'Salvando...' : 'Salvar'}
             </button>
             <button type="button" className="btn btn-secondary" onClick={() => setFormOpen(false)}>
               Cancelar
@@ -306,7 +318,10 @@ export function EstoquePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMaterialStatus(item.material.id, item.material.status === 'ativo' ? 'inativo' : 'ativo')}
+                  onClick={async () => {
+                    const result = await setMaterialStatus(item.material.id, item.material.status === 'ativo' ? 'inativo' : 'ativo')
+                    if (!result.success) alert(result.error)
+                  }}
                 >
                   {item.material.status === 'ativo' ? 'Inativar' : 'Reativar'}
                 </button>

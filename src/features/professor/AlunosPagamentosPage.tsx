@@ -82,29 +82,25 @@ export function AlunosPagamentosPage() {
   async function salvar() {
     if (!form.fullName || !form.email || !/^\d{11}$/.test(form.cpf) || !form.modalidadeId) return
     if (form.diaVencimento < 1 || form.diaVencimento > 31) return
-    if (editingId) {
-      updateAluno(editingId, form)
-      setFormOpen(false)
-      return
-    }
-    if (form.senha.length < 6) {
+    if (!editingId && form.senha.length < 6) {
       setErro('A senha precisa ter pelo menos 6 caracteres.')
       return
     }
     setSalvando(true)
-    const result = await createAluno(form)
+    const result = editingId ? await updateAluno(editingId, form) : await createAluno(form)
     setSalvando(false)
     if (!result.success) {
-      setErro(result.error ?? 'Não foi possível criar o aluno.')
+      setErro(result.error ?? 'Não foi possível salvar o aluno.')
       return
     }
     setFormOpen(false)
   }
 
-  function confirmarPagamentoDoAluno(alunoId: string) {
+  async function confirmarPagamentoDoAluno(alunoId: string) {
     const pagamento = pagamentos.find((p) => p.alunoId === alunoId && p.mesReferencia === MES_ATUAL)
     if (!pagamento) return
-    confirmarPagamento(pagamento.id, professorId, metodoSelecionado)
+    const result = await confirmarPagamento(pagamento.id, professorId, metodoSelecionado)
+    if (!result.success) alert(result.error)
     setConfirmandoId(null)
   }
 
@@ -222,7 +218,10 @@ export function AlunosPagamentosPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setAlunoStatus(aluno.id, aluno.status === 'ativo' ? 'inativo' : 'ativo')}
+                    onClick={async () => {
+                      const result = await setAlunoStatus(aluno.id, aluno.status === 'ativo' ? 'inativo' : 'ativo')
+                      if (!result.success) alert(result.error)
+                    }}
                   >
                     {aluno.status === 'ativo' ? 'Inativar' : 'Reativar'}
                   </button>
