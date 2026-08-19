@@ -48,7 +48,19 @@ export function HorariosPage() {
   }
 
   async function salvar() {
-    if (!form.nome || !form.modalidadeId || form.diasSemana.length === 0) return
+    if (!form.nome) {
+      setErro('Informe o nome da turma.')
+      return
+    }
+    if (!form.modalidadeId) {
+      setErro('Selecione uma modalidade.')
+      return
+    }
+    if (form.diasSemana.length === 0) {
+      setErro('Selecione ao menos um dia da semana.')
+      return
+    }
+    setErro(null)
     setSalvando(true)
     const result = editingId ? await updateTurma(editingId, form) : await createTurma(form)
     setSalvando(false)

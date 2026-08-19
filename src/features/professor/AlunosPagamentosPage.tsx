@@ -92,12 +92,27 @@ export function AlunosPagamentosPage() {
   }
 
   async function salvar() {
-    if (!form.fullName || !form.email || !/^\d{11}$/.test(form.cpf) || !form.modalidadeId) return
-    if (form.diaVencimento < 1 || form.diaVencimento > 31) return
+    if (!form.fullName || !form.email) {
+      setErro('Preencha nome e e-mail.')
+      return
+    }
+    if (!/^\d{11}$/.test(form.cpf)) {
+      setErro('Informe um CPF válido com 11 números.')
+      return
+    }
+    if (!form.modalidadeId) {
+      setErro('Selecione uma modalidade.')
+      return
+    }
+    if (form.diaVencimento < 1 || form.diaVencimento > 31) {
+      setErro('O dia de vencimento precisa estar entre 1 e 31.')
+      return
+    }
     if (!editingId && form.senha.length < 6) {
       setErro('A senha precisa ter pelo menos 6 caracteres.')
       return
     }
+    setErro(null)
     setSalvando(true)
     const result = editingId ? await updateAluno(editingId, form) : await createAluno(form)
     setSalvando(false)
