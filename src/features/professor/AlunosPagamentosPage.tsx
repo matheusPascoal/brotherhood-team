@@ -35,8 +35,18 @@ function emptyForm(professorId: string): NovoAlunoInput {
 }
 
 export function AlunosPagamentosPage() {
-  const { currentAccount, profiles, alunos, modalidades, pagamentos, createAluno, updateAluno, setAlunoStatus, confirmarPagamento } =
-    useAppData()
+  const {
+    currentAccount,
+    profiles,
+    professores,
+    alunos,
+    modalidades,
+    pagamentos,
+    createAluno,
+    updateAluno,
+    setAlunoStatus,
+    confirmarPagamento,
+  } = useAppData()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<NovoAlunoInput>(emptyForm(currentAccount?.id ?? ''))
@@ -51,6 +61,8 @@ export function AlunosPagamentosPage() {
   const nomeDoProfile = (profileId?: string) => profiles.find((p) => p.id === profileId)?.fullName ?? '—'
   const nomeModalidade = (id: string) => modalidades.find((m) => m.id === id)?.nome ?? '—'
   const meusAlunos = alunos.filter((a) => a.professorId === professorId)
+  const meuProfessor = professores.find((p) => p.profileId === professorId)
+  const minhasModalidades = modalidades.filter((m) => meuProfessor?.modalidadeIds.includes(m.id))
 
   function abrirCadastro() {
     setEditingId(null)
@@ -145,12 +157,15 @@ export function AlunosPagamentosPage() {
               Modalidade
               <select value={form.modalidadeId} onChange={(e) => setForm({ ...form, modalidadeId: e.target.value })}>
                 <option value="">Selecione…</option>
-                {modalidades.map((m) => (
+                {minhasModalidades.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.nome}
                   </option>
                 ))}
               </select>
+              {minhasModalidades.length === 0 && (
+                <span className="empty-state">Você ainda não leciona nenhuma modalidade cadastrada.</span>
+              )}
             </label>
             <label>
               Faixa atual
