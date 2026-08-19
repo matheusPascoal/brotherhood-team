@@ -1,8 +1,9 @@
-// Edge Function: só o Admin autenticado pode chamar. Cria um usuário real no
-// Supabase Auth (com a senha definida pelo Admin) e promove profiles.role,
-// já que o trigger handle_new_user() (migration 0014) sempre cria o profile
-// como 'aluno' por padrão. Usa a service_role key (injetada automaticamente
-// no runtime da function) — ela nunca deve existir no frontend.
+// Edge Function: Admin autenticado pode criar professor ou aluno; Professor
+// autenticado só pode criar aluno (para os próprios alunos). Cria um usuário
+// real no Supabase Auth (com a senha definida por quem chama) e promove
+// profiles.role, já que o trigger handle_new_user() (migration 0014) sempre
+// cria o profile como 'aluno' por padrão. Usa a service_role key (injetada
+// automaticamente no runtime da function) — ela nunca deve existir no frontend.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const CORS_HEADERS = {
@@ -55,8 +56,9 @@ Deno.serve(async (req) => {
     .eq('id', caller.id)
     .single()
 
-  if (callerProfile?.role !== 'admin') {
-    return jsonResponse({ error: 'Apenas administradores podem criar contas.' }, 403)
+  const callerRole = callerProfile?.role
+  if (callerRole !== 'admin' && callerRole !== 'professor') {
+    return jsonResponse({ error: 'Apenas administradores ou professores podem criar contas.' }, 403)
   }
 
   let body: RequestBody
@@ -74,6 +76,10 @@ Deno.serve(async (req) => {
   }
   if (role !== 'professor' && role !== 'aluno') {
     return jsonResponse({ error: 'Role inválido.' }, 400)
+  }
+  // Professor só pode criar aluno — quem cria professor é sempre o Admin.
+  if (callerRole === 'professor' && role !== 'aluno') {
+    return jsonResponse({ error: 'Professores só podem cadastrar alunos.' }, 403)
   }
 
   const { data: created, error: createError } = await adminClient.auth.admin.createUser({
