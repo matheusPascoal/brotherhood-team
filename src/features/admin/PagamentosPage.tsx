@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAppData } from '../../state/AppDataContext'
+import { getTurmasDoAluno } from '../../domain/selectors'
 import { currency, formatMesReferencia } from '../../domain/format'
 import type { MetodoPagamento, StatusPagamento } from '../../domain/types'
 import { Badge } from '../../components/Badge'
@@ -18,7 +19,7 @@ const STATUS_PAGAMENTO_LABEL: Record<StatusPagamento, string> = {
 }
 
 export function PagamentosPage() {
-  const { profiles, alunos, pagamentos, currentAccount, confirmarPagamento } = useAppData()
+  const { profiles, alunos, turmas, pagamentos, currentAccount, confirmarPagamento } = useAppData()
   const [filtroMes, setFiltroMes] = useState('')
   const [filtroProfessor, setFiltroProfessor] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('')
@@ -26,6 +27,12 @@ export function PagamentosPage() {
   const [metodoSelecionado, setMetodoSelecionado] = useState<MetodoPagamento>('pix')
 
   const nomeDoProfile = (profileId?: string) => profiles.find((p) => p.id === profileId)?.fullName ?? '—'
+  const nomeTurmas = (alunoId: string) => {
+    const aluno = alunos.find((a) => a.id === alunoId)
+    if (!aluno) return '—'
+    const nomes = getTurmasDoAluno(aluno, turmas).map((t) => t.nome)
+    return nomes.length > 0 ? nomes.join(', ') : '—'
+  }
 
   const mesesDisponiveis = useMemo(
     () => Array.from(new Set(pagamentos.map((p) => p.mesReferencia))).sort().reverse(),
@@ -86,6 +93,8 @@ export function PagamentosPage() {
         <thead>
           <tr>
             <th>Aluno</th>
+            <th>Professor</th>
+            <th>Turma</th>
             <th>Mês</th>
             <th>Valor</th>
             <th>Status</th>
@@ -100,6 +109,8 @@ export function PagamentosPage() {
             return (
               <tr key={pagamento.id}>
                 <td>{nomeDoProfile(aluno?.profileId)}</td>
+                <td>{nomeDoProfile(aluno?.professorId)}</td>
+                <td>{nomeTurmas(pagamento.alunoId)}</td>
                 <td>{formatMesReferencia(pagamento.mesReferencia)}</td>
                 <td>{currency.format(pagamento.valor)}</td>
                 <td>

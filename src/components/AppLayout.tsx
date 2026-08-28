@@ -43,6 +43,7 @@ const TAB_ICON: Record<string, typeof LayoutDashboard> = {
   painel: LayoutDashboard,
   horarios: CalendarClock,
   'alunos-pagamentos': Users,
+  'pagamentos-turmas': CircleDollarSign,
   presencas: ClipboardCheck,
   'meu-painel': UserCircle,
 }

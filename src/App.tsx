@@ -11,6 +11,7 @@ import { EstoquePage } from './features/admin/EstoquePage'
 import { PainelProfessorPage } from './features/professor/PainelProfessorPage'
 import { HorariosPage } from './features/professor/HorariosPage'
 import { AlunosPagamentosPage } from './features/professor/AlunosPagamentosPage'
+import { PagamentosTurmasPage } from './features/professor/PagamentosTurmasPage'
 import { PresencasPage } from './features/professor/PresencasPage'
 import { MeuPainelPage } from './features/aluno/MeuPainelPage'
 import { LoginPage } from './features/auth/LoginPage'
@@ -31,6 +32,7 @@ const TABS_BY_ROLE: Record<Role, { key: string; label: string }[]> = {
     { key: 'painel', label: 'Painel do Professor' },
     { key: 'horarios', label: 'Horários de Aulas' },
     { key: 'alunos-pagamentos', label: 'Alunos & Pagamentos' },
+    { key: 'pagamentos-turmas', label: 'Pagamentos por Turma' },
     { key: 'presencas', label: 'Registro de Presenças' },
   ],
   aluno: [{ key: 'meu-painel', label: 'Meu Painel' }],
@@ -69,6 +71,7 @@ function AppShell({ currentAccount }: { currentAccount: Profile }) {
       painel: () => <PainelProfessorPage onNavigate={setActiveTab} />,
       horarios: HorariosPage,
       'alunos-pagamentos': AlunosPagamentosPage,
+      'pagamentos-turmas': PagamentosTurmasPage,
       presencas: PresencasPage,
     },
     aluno: {

@@ -107,6 +107,13 @@ interface AppDataContextValue extends AppDataState {
   changePassword: (novaSenha: string) => Promise<ActionResult>
   refetchData: () => Promise<void>
   confirmarPagamento: (pagamentoId: string, confirmadoPorId: string, metodo: MetodoPagamento) => Promise<ActionResult>
+  definirPagamento: (
+    alunoId: string,
+    mesReferencia: string,
+    pago: boolean,
+    confirmadoPorId: string,
+    metodo?: MetodoPagamento
+  ) => Promise<ActionResult>
   createProfessor: (input: NovoProfessorInput) => Promise<ActionResult>
   updateProfessor: (professorId: string, updates: Partial<NovoProfessorInput>) => Promise<ActionResult>
   setProfessorStatus: (professorId: string, status: AccountStatus) => Promise<ActionResult>
@@ -487,6 +494,41 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         .update({ status: 'confirmado', metodo, confirmado_por: confirmadoPorId, confirmado_em: new Date().toISOString() })
         .eq('id', pagamentoId)
       if (error) return { success: false, error: error.message }
+      await refetchTable('pagamentos', fetchPagamentos)
+      return { success: true }
+    },
+
+    // Turmas não têm cobrança pré-gerada por mês (não há job que crie a linha
+    // de pagamentos). Marcar "pago" faz upsert no índice único
+    // pagamentos(aluno_id, mes_referencia) — cria a cobrança do mês se ainda
+    // não existir. Marcar "não pago" só reverte uma cobrança já existente.
+    definirPagamento: async (alunoId, mesReferencia, pago, confirmadoPorId, metodo) => {
+      const aluno = state.alunos.find((a) => a.id === alunoId)
+      if (!aluno) return { success: false, error: 'Aluno não encontrado.' }
+      const existente = state.pagamentos.find((p) => p.alunoId === alunoId && p.mesReferencia === mesReferencia)
+
+      if (pago) {
+        const { error } = await supabase.from('pagamentos').upsert(
+          {
+            aluno_id: alunoId,
+            mes_referencia: mesReferencia,
+            valor: existente?.valor ?? aluno.mensalidadeValor,
+            status: 'confirmado',
+            metodo: metodo ?? 'outro',
+            confirmado_por: confirmadoPorId,
+            confirmado_em: new Date().toISOString(),
+          },
+          { onConflict: 'aluno_id,mes_referencia' }
+        )
+        if (error) return { success: false, error: error.message }
+      } else if (existente) {
+        const { error } = await supabase
+          .from('pagamentos')
+          .update({ status: 'pendente', metodo: null, confirmado_por: null, confirmado_em: null })
+          .eq('id', existente.id)
+        if (error) return { success: false, error: error.message }
+      }
+
       await refetchTable('pagamentos', fetchPagamentos)
       return { success: true }
     },
