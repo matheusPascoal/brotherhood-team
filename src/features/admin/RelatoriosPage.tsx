@@ -5,14 +5,14 @@ import { currency, formatMesReferencia } from '../../domain/format'
 import { MES_ATUAL } from '../../mocks/mockData'
 
 export function RelatoriosPage() {
-  const { profiles, professores, alunos, pagamentos } = useAppData()
+  const { profiles, professores, alunos, alunoModalidades, pagamentos } = useAppData()
   const mesesDisponiveis = useMemo(
     () => Array.from(new Set(pagamentos.map((p) => p.mesReferencia))).sort().reverse(),
     [pagamentos]
   )
   const [mesSelecionado, setMesSelecionado] = useState(MES_ATUAL)
 
-  const relatorio = computeRelatorioMensal(mesSelecionado, { profiles, professores, alunos, pagamentos })
+  const relatorio = computeRelatorioMensal(mesSelecionado, { profiles, professores, alunos, alunoModalidades, pagamentos })
 
   function exportar(formato: 'excel' | 'pdf') {
     alert(`Exportação em ${formato.toUpperCase()} entra na Fase 7 do plano (hoje é só o botão, como no protótipo).`)

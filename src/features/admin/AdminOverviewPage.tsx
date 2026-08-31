@@ -15,8 +15,8 @@ function mesAtualLabel(): string {
 }
 
 export function AdminOverviewPage({ onNavigate }: Props) {
-  const { profiles, professores, alunos, pagamentos, modalidades } = useAppData()
-  const overview = computeAdminOverview({ profiles, professores, alunos, pagamentos })
+  const { profiles, professores, alunos, alunoModalidades, pagamentos, modalidades } = useAppData()
+  const overview = computeAdminOverview({ profiles, professores, alunos, alunoModalidades, pagamentos })
 
   const alunosEmAtrasoNoMes = pagamentos.filter(
     (p) => p.mesReferencia === MES_ATUAL && p.status === 'atrasado'
@@ -24,9 +24,9 @@ export function AdminOverviewPage({ onNavigate }: Props) {
 
   function nomeDoProfessorDoPagamento(pagamentoId: string): string {
     const pagamento = pagamentos.find((p) => p.id === pagamentoId)
-    const aluno = pagamento ? alunos.find((a) => a.id === pagamento.alunoId) : undefined
-    if (!aluno) return '—'
-    return profiles.find((p) => p.id === aluno.professorId)?.fullName ?? '—'
+    const matricula = pagamento ? alunoModalidades.find((am) => am.id === pagamento.alunoModalidadeId) : undefined
+    if (!matricula) return '—'
+    return profiles.find((p) => p.id === matricula.professorId)?.fullName ?? '—'
   }
 
   return (
@@ -132,7 +132,9 @@ export function AdminOverviewPage({ onNavigate }: Props) {
                     .map((id) => modalidades.find((m) => m.id === id)?.nome)
                     .filter(Boolean)
                     .join(' • ') || '—'
-                const alunosDoProfessor = alunos.filter((a) => a.professorId === row.professorId && a.status === 'ativo').length
+                const alunosDoProfessor = new Set(
+                  alunoModalidades.filter((am) => am.professorId === row.professorId && am.status === 'ativo').map((am) => am.alunoId)
+                ).size
                 const pct = overview.receitaMensal > 0 ? Math.round((row.valorArrecadado / overview.receitaMensal) * 100) : 0
 
                 return (

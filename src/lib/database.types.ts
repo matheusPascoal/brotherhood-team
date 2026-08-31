@@ -10,13 +10,13 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
-      alunos: {
+      aluno_modalidades: {
         Row: {
-          cpf: string
+          aluno_id: string
           created_at: string
           dia_vencimento: number
           faixa_atual: string
@@ -25,12 +25,11 @@ export type Database = {
           mensalidade_valor: number
           modalidade_id: string
           professor_id: string
-          profile_id: string | null
           status: Database["public"]["Enums"]["aluno_status"]
           updated_at: string
         }
         Insert: {
-          cpf: string
+          aluno_id: string
           created_at?: string
           dia_vencimento: number
           faixa_atual: string
@@ -39,12 +38,11 @@ export type Database = {
           mensalidade_valor: number
           modalidade_id: string
           professor_id: string
-          profile_id?: string | null
           status?: Database["public"]["Enums"]["aluno_status"]
           updated_at?: string
         }
         Update: {
-          cpf?: string
+          aluno_id?: string
           created_at?: string
           dia_vencimento?: number
           faixa_atual?: string
@@ -53,25 +51,95 @@ export type Database = {
           mensalidade_valor?: number
           modalidade_id?: string
           professor_id?: string
-          profile_id?: string | null
           status?: Database["public"]["Enums"]["aluno_status"]
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "alunos_modalidade_id_fkey"
+            foreignKeyName: "aluno_modalidades_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_modalidades_modalidade_id_fkey"
             columns: ["modalidade_id"]
             isOneToOne: false
             referencedRelation: "modalidades"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "alunos_professor_id_fkey"
+            foreignKeyName: "aluno_modalidades_professor_id_fkey"
             columns: ["professor_id"]
             isOneToOne: false
             referencedRelation: "professores"
             referencedColumns: ["profile_id"]
           },
+        ]
+      }
+      aluno_turmas: {
+        Row: {
+          aluno_modalidade_id: string
+          created_at: string
+          id: string
+          turma_id: string
+        }
+        Insert: {
+          aluno_modalidade_id: string
+          created_at?: string
+          id?: string
+          turma_id: string
+        }
+        Update: {
+          aluno_modalidade_id?: string
+          created_at?: string
+          id?: string
+          turma_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aluno_turmas_aluno_modalidade_id_fkey"
+            columns: ["aluno_modalidade_id"]
+            isOneToOne: false
+            referencedRelation: "aluno_modalidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aluno_turmas_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "turmas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alunos: {
+        Row: {
+          cpf: string
+          created_at: string
+          id: string
+          profile_id: string | null
+          status: Database["public"]["Enums"]["aluno_status"]
+          updated_at: string
+        }
+        Insert: {
+          cpf: string
+          created_at?: string
+          id?: string
+          profile_id?: string | null
+          status?: Database["public"]["Enums"]["aluno_status"]
+          updated_at?: string
+        }
+        Update: {
+          cpf?: string
+          created_at?: string
+          id?: string
+          profile_id?: string | null
+          status?: Database["public"]["Enums"]["aluno_status"]
+          updated_at?: string
+        }
+        Relationships: [
           {
             foreignKeyName: "alunos_profile_id_fkey"
             columns: ["profile_id"]
@@ -83,7 +151,7 @@ export type Database = {
       }
       graduacoes_historico: {
         Row: {
-          aluno_id: string
+          aluno_modalidade_id: string
           created_at: string
           data_graduacao: string
           faixa: string
@@ -93,7 +161,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          aluno_id: string
+          aluno_modalidade_id: string
           created_at?: string
           data_graduacao: string
           faixa: string
@@ -103,7 +171,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          aluno_id?: string
+          aluno_modalidade_id?: string
           created_at?: string
           data_graduacao?: string
           faixa?: string
@@ -114,10 +182,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "graduacoes_historico_aluno_id_fkey"
-            columns: ["aluno_id"]
+            foreignKeyName: "graduacoes_historico_aluno_modalidade_id_fkey"
+            columns: ["aluno_modalidade_id"]
             isOneToOne: false
-            referencedRelation: "alunos"
+            referencedRelation: "aluno_modalidades"
             referencedColumns: ["id"]
           },
           {
@@ -245,7 +313,7 @@ export type Database = {
       }
       pagamentos: {
         Row: {
-          aluno_id: string
+          aluno_modalidade_id: string
           confirmado_em: string | null
           confirmado_por: string | null
           created_at: string
@@ -258,7 +326,7 @@ export type Database = {
           valor: number
         }
         Insert: {
-          aluno_id: string
+          aluno_modalidade_id: string
           confirmado_em?: string | null
           confirmado_por?: string | null
           created_at?: string
@@ -271,7 +339,7 @@ export type Database = {
           valor: number
         }
         Update: {
-          aluno_id?: string
+          aluno_modalidade_id?: string
           confirmado_em?: string | null
           confirmado_por?: string | null
           created_at?: string
@@ -285,10 +353,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "pagamentos_aluno_id_fkey"
-            columns: ["aluno_id"]
+            foreignKeyName: "pagamentos_aluno_modalidade_id_fkey"
+            columns: ["aluno_modalidade_id"]
             isOneToOne: false
-            referencedRelation: "alunos"
+            referencedRelation: "aluno_modalidades"
             referencedColumns: ["id"]
           },
           {
@@ -543,7 +611,7 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals["public"]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends

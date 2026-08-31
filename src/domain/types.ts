@@ -40,6 +40,14 @@ export interface Aluno {
   id: string
   profileId?: string
   cpf: string
+  status: AlunoStatus
+}
+
+// Matrícula do aluno numa modalidade: cada modalidade tem seu próprio
+// professor, faixa/grau, mensalidade e turma(s) — um aluno pode ter várias.
+export interface AlunoModalidade {
+  id: string
+  alunoId: string
   professorId: string
   modalidadeId: string
   faixaAtual: string
@@ -47,6 +55,7 @@ export interface Aluno {
   mensalidadeValor: number
   diaVencimento: number
   status: AlunoStatus
+  turmaIds: string[]
 }
 
 export interface Turma {
@@ -63,7 +72,7 @@ export interface Turma {
 
 export interface Pagamento {
   id: string
-  alunoId: string
+  alunoModalidadeId: string
   mesReferencia: string // ISO, sempre dia 1 do mês
   valor: number
   status: StatusPagamento
@@ -84,7 +93,7 @@ export interface Presenca {
 
 export interface GraduacaoHistorico {
   id: string
-  alunoId: string
+  alunoModalidadeId: string
   faixa: string
   grau: number
   dataGraduacao: string

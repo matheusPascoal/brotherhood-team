@@ -40,7 +40,7 @@ const DIA_LABEL: Record<string, string> = {
 }
 
 export function MeuPainelPage() {
-  const { currentAccount, alunos, profiles, modalidades, pagamentos, turmas, graduacoesHistorico } = useAppData()
+  const { currentAccount, alunos, alunoModalidades, profiles, modalidades, pagamentos, turmas, graduacoesHistorico } = useAppData()
   if (!currentAccount) return null
 
   const aluno = alunos.find((a) => a.profileId === currentAccount.id)
@@ -53,95 +53,96 @@ export function MeuPainelPage() {
     )
   }
 
-  const painel = computePainelAluno(aluno.id, { alunos, profiles, modalidades, pagamentos, turmas, graduacoesHistorico })
+  const painel = computePainelAluno(aluno.id, { alunos, alunoModalidades, profiles, modalidades, pagamentos, turmas, graduacoesHistorico })
   if (!painel) return null
 
   return (
     <div className="page">
       <h1>Meu Painel</h1>
 
-      <div className="cards-grid">
-        <div className="card">
-          <span className="card__label">Status financeiro do mês</span>
-          <span className="card__value">
-            <Badge tone={STATUS_FINANCEIRO_TONE[painel.statusFinanceiroMes]}>
-              {STATUS_FINANCEIRO_LABEL[painel.statusFinanceiroMes]}
-            </Badge>
-          </span>
-        </div>
-        <div className="card">
-          <span className="card__label">Mensalidade</span>
-          <span className="card__value">{currency.format(painel.aluno.mensalidadeValor)}</span>
-          <span className="card__hint">Vencimento: dia {painel.aluno.diaVencimento}</span>
-        </div>
-        <div className="card">
-          <span className="card__label">Modalidade / Graduação</span>
-          <span className="card__value">{painel.modalidadeNome}</span>
-          <span className="card__hint">
-            <BeltPill faixa={painel.aluno.faixaAtual} /> grau {painel.aluno.grauAtual}
-          </span>
-        </div>
-        <div className="card">
-          <span className="card__label">Professor responsável</span>
-          <span className="card__value">{painel.professorNome}</span>
-        </div>
-      </div>
+      {painel.matriculas.length === 0 && <p className="empty-state">Nenhuma modalidade matriculada ainda.</p>}
 
-      <section className="panel">
-        <h2>Grade de horários</h2>
-        {painel.turmasDaModalidade.length === 0 ? (
-          <p className="empty-state">Nenhuma turma cadastrada para sua modalidade ainda.</p>
-        ) : (
+      {painel.matriculas.map((m) => (
+        <section className="panel" key={m.alunoModalidade.id}>
+          <h2>{m.modalidadeNome}</h2>
+
+          <div className="cards-grid">
+            <div className="card">
+              <span className="card__label">Status financeiro do mês</span>
+              <span className="card__value">
+                <Badge tone={STATUS_FINANCEIRO_TONE[m.statusFinanceiroMes]}>{STATUS_FINANCEIRO_LABEL[m.statusFinanceiroMes]}</Badge>
+              </span>
+            </div>
+            <div className="card">
+              <span className="card__label">Mensalidade</span>
+              <span className="card__value">{currency.format(m.alunoModalidade.mensalidadeValor)}</span>
+              <span className="card__hint">Vencimento: dia {m.alunoModalidade.diaVencimento}</span>
+            </div>
+            <div className="card">
+              <span className="card__label">Graduação</span>
+              <span className="card__value">
+                <BeltPill faixa={m.alunoModalidade.faixaAtual} /> grau {m.alunoModalidade.grauAtual}
+              </span>
+            </div>
+            <div className="card">
+              <span className="card__label">Professor responsável</span>
+              <span className="card__value">{m.professorNome}</span>
+            </div>
+          </div>
+
+          <h3>Grade de horários</h3>
+          {m.turmas.length === 0 ? (
+            <p className="empty-state">Nenhuma turma matriculada nesta modalidade ainda.</p>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Turma</th>
+                  <th>Local</th>
+                  <th>Horário</th>
+                  <th>Dias</th>
+                </tr>
+              </thead>
+              <tbody>
+                {m.turmas.map((turma) => (
+                  <tr key={turma.id}>
+                    <td>{turma.nome}</td>
+                    <td>{turma.local || '—'}</td>
+                    <td>
+                      {turma.horaInicio}–{turma.horaFim}
+                    </td>
+                    <td>{turma.diasSemana.map((d) => DIA_LABEL[d]).join(', ')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          <h3>Histórico de pagamentos</h3>
           <table className="table">
             <thead>
               <tr>
-                <th>Turma</th>
-                <th>Local</th>
-                <th>Horário</th>
-                <th>Dias</th>
+                <th>Mês</th>
+                <th>Valor</th>
+                <th>Status</th>
+                <th>Método</th>
               </tr>
             </thead>
             <tbody>
-              {painel.turmasDaModalidade.map((turma) => (
-                <tr key={turma.id}>
-                  <td>{turma.nome}</td>
-                  <td>{turma.local || '—'}</td>
+              {m.historicoPagamentos.map((p) => (
+                <tr key={p.id}>
+                  <td>{formatMesReferencia(p.mesReferencia)}</td>
+                  <td>{currency.format(p.valor)}</td>
                   <td>
-                    {turma.horaInicio}–{turma.horaFim}
+                    <Badge tone={STATUS_PAGAMENTO_TONE[p.status]}>{STATUS_PAGAMENTO_LABEL[p.status]}</Badge>
                   </td>
-                  <td>{turma.diasSemana.map((d) => DIA_LABEL[d]).join(', ')}</td>
+                  <td>{p.metodo ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        )}
-      </section>
-
-      <section className="panel">
-        <h2>Histórico de pagamentos</h2>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Mês</th>
-              <th>Valor</th>
-              <th>Status</th>
-              <th>Método</th>
-            </tr>
-          </thead>
-          <tbody>
-            {painel.historicoPagamentos.map((p) => (
-              <tr key={p.id}>
-                <td>{formatMesReferencia(p.mesReferencia)}</td>
-                <td>{currency.format(p.valor)}</td>
-                <td>
-                  <Badge tone={STATUS_PAGAMENTO_TONE[p.status]}>{STATUS_PAGAMENTO_LABEL[p.status]}</Badge>
-                </td>
-                <td>{p.metodo ?? '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+        </section>
+      ))}
     </div>
   )
 }

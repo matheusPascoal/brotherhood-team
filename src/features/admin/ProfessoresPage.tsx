@@ -5,7 +5,7 @@ import { Badge } from '../../components/Badge'
 const EMPTY_FORM: NovoProfessorInput = { fullName: '', email: '', senha: '', phone: '', comissaoPercentual: 50, modalidadeIds: [] }
 
 export function ProfessoresPage() {
-  const { profiles, professores, modalidades, alunos, createProfessor, updateProfessor, setProfessorStatus, deleteProfessor } =
+  const { profiles, professores, modalidades, alunoModalidades, createProfessor, updateProfessor, setProfessorStatus, deleteProfessor } =
     useAppData()
   const [busca, setBusca] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -16,7 +16,8 @@ export function ProfessoresPage() {
 
   const nomeDoProfile = (profileId: string) => profiles.find((p) => p.id === profileId)?.fullName ?? '—'
   const emailDoProfile = (profileId: string) => profiles.find((p) => p.id === profileId)?.email ?? '—'
-  const alunosCount = (professorProfileId: string) => alunos.filter((a) => a.professorId === professorProfileId).length
+  const alunosCount = (professorProfileId: string) =>
+    new Set(alunoModalidades.filter((am) => am.professorId === professorProfileId).map((am) => am.alunoId)).size
 
   const linhas = professores.filter((p) => {
     const nome = nomeDoProfile(p.profileId).toLowerCase()

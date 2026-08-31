@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useAppData, type NovoAlunoInput } from '../../state/AppDataContext'
-import { getStatusFinanceiroAluno } from '../../domain/selectors'
+import { getStatusFinanceiroMatricula } from '../../domain/selectors'
 import { currency, formatCpfFull, maskCpf } from '../../domain/format'
 import { MES_ATUAL } from '../../mocks/mockData'
 import { Badge, BeltPill } from '../../components/Badge'
 import type { BadgeTone } from '../../components/Badge'
+import { AlunoModalidadesForm } from '../shared/AlunoModalidadesForm'
 
 const STATUS_FINANCEIRO_TONE: Record<string, BadgeTone> = {
   adimplente: 'success',
@@ -23,16 +24,11 @@ const EMPTY_FORM: NovoAlunoInput = {
   email: '',
   senha: '',
   cpf: '',
-  professorId: '',
-  modalidadeId: '',
-  faixaAtual: '',
-  grauAtual: 0,
-  mensalidadeValor: 0,
-  diaVencimento: 5,
+  modalidades: [],
 }
 
 export function AlunosPage() {
-  const { profiles, professores, alunos, modalidades, pagamentos, createAluno, updateAluno, setAlunoStatus, deleteAluno } =
+  const { profiles, professores, alunos, alunoModalidades, modalidades, turmas, pagamentos, createAluno, updateAluno, setAlunoStatus, deleteAluno } =
     useAppData()
   const [busca, setBusca] = useState('')
   const [filtroProfessor, setFiltroProfessor] = useState('')
@@ -46,15 +42,18 @@ export function AlunosPage() {
   const nomeDoProfile = (profileId?: string) => profiles.find((p) => p.id === profileId)?.fullName ?? '—'
   const emailDoProfile = (profileId?: string) => profiles.find((p) => p.id === profileId)?.email ?? '—'
   const nomeModalidade = (id: string) => modalidades.find((m) => m.id === id)?.nome ?? '—'
+  const matriculasDoAluno = (alunoId: string) => alunoModalidades.filter((am) => am.alunoId === alunoId)
 
   const linhas = alunos.filter((aluno) => {
     const termo = busca.toLowerCase()
     const nome = nomeDoProfile(aluno.profileId).toLowerCase()
     const email = emailDoProfile(aluno.profileId).toLowerCase()
     const casaBusca = !termo || nome.includes(termo) || email.includes(termo) || aluno.cpf.includes(termo)
-    const casaProfessor = !filtroProfessor || aluno.professorId === filtroProfessor
-    const statusFinanceiro = getStatusFinanceiroAluno(aluno.id, MES_ATUAL, pagamentos)
-    const casaStatus = !filtroStatusFinanceiro || statusFinanceiro === filtroStatusFinanceiro
+    const minhasMatriculas = matriculasDoAluno(aluno.id)
+    const casaProfessor = !filtroProfessor || minhasMatriculas.some((am) => am.professorId === filtroProfessor)
+    const casaStatus =
+      !filtroStatusFinanceiro ||
+      minhasMatriculas.some((am) => getStatusFinanceiroMatricula(am.id, MES_ATUAL, pagamentos) === filtroStatusFinanceiro)
     return casaBusca && casaProfessor && casaStatus
   })
 
@@ -74,24 +73,38 @@ export function AlunosPage() {
       email: emailDoProfile(aluno.profileId),
       senha: '',
       cpf: aluno.cpf,
-      professorId: aluno.professorId,
-      modalidadeId: aluno.modalidadeId,
-      faixaAtual: aluno.faixaAtual,
-      grauAtual: aluno.grauAtual,
-      mensalidadeValor: aluno.mensalidadeValor,
-      diaVencimento: aluno.diaVencimento,
+      modalidades: matriculasDoAluno(alunoId)
+        .filter((am) => am.status === 'ativo')
+        .map((am) => ({
+          id: am.id,
+          professorId: am.professorId,
+          modalidadeId: am.modalidadeId,
+          faixaAtual: am.faixaAtual,
+          grauAtual: am.grauAtual,
+          mensalidadeValor: am.mensalidadeValor,
+          diaVencimento: am.diaVencimento,
+          turmaIds: am.turmaIds,
+        })),
     })
     setErro(null)
     setFormOpen(true)
   }
 
   async function salvar() {
-    if (!form.fullName || !form.email || !/^\d{11}$/.test(form.cpf) || !form.professorId || !form.modalidadeId) return
-    if (form.diaVencimento < 1 || form.diaVencimento > 31) return
+    if (!form.fullName || !form.email || !/^\d{11}$/.test(form.cpf)) return
+    if (form.modalidades.length === 0) {
+      setErro('Adicione ao menos uma modalidade.')
+      return
+    }
+    if (form.modalidades.some((m) => !m.professorId || !m.modalidadeId || m.diaVencimento < 1 || m.diaVencimento > 31)) {
+      setErro('Preencha professor, modalidade e um dia de vencimento válido (1–31) em cada modalidade.')
+      return
+    }
     if (!editingId && form.senha.length < 6) {
       setErro('A senha precisa ter pelo menos 6 caracteres.')
       return
     }
+    setErro(null)
     setSalvando(true)
     const result = editingId ? await updateAluno(editingId, form) : await createAluno(form)
     setSalvando(false)
@@ -177,63 +190,17 @@ export function AlunosPage() {
                 onChange={(e) => setForm({ ...form, cpf: e.target.value.replace(/\D/g, '') })}
               />
             </label>
-            <label>
-              Professor responsável
-              <select value={form.professorId} onChange={(e) => setForm({ ...form, professorId: e.target.value })}>
-                <option value="">Selecione…</option>
-                {professores.map((p) => (
-                  <option key={p.id} value={p.profileId}>
-                    {nomeDoProfile(p.profileId)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Modalidade
-              <select value={form.modalidadeId} onChange={(e) => setForm({ ...form, modalidadeId: e.target.value })}>
-                <option value="">Selecione…</option>
-                {modalidades.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.nome}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Faixa atual
-              <input value={form.faixaAtual} onChange={(e) => setForm({ ...form, faixaAtual: e.target.value })} />
-            </label>
-            <label>
-              Grau (0–4)
-              <input
-                type="number"
-                min={0}
-                max={4}
-                value={form.grauAtual}
-                onChange={(e) => setForm({ ...form, grauAtual: Number(e.target.value) })}
-              />
-            </label>
-            <label>
-              Mensalidade (R$)
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.mensalidadeValor}
-                onChange={(e) => setForm({ ...form, mensalidadeValor: Number(e.target.value) })}
-              />
-            </label>
-            <label>
-              Dia de vencimento (1–31)
-              <input
-                type="number"
-                min={1}
-                max={31}
-                value={form.diaVencimento}
-                onChange={(e) => setForm({ ...form, diaVencimento: Number(e.target.value) })}
-              />
-            </label>
           </div>
+
+          <AlunoModalidadesForm
+            value={form.modalidades}
+            onChange={(modalidades) => setForm({ ...form, modalidades })}
+            professores={professores}
+            profiles={profiles}
+            modalidades={modalidades}
+            turmas={turmas}
+          />
+
           {erro && <p className="empty-state">{erro}</p>}
           <div className="form-actions">
             <button type="button" className="btn btn-primary" onClick={salvar} disabled={salvando}>
@@ -251,29 +218,40 @@ export function AlunosPage() {
           <tr>
             <th>Nome</th>
             <th>CPF</th>
-            <th>Professor</th>
-            <th>Modalidade</th>
-            <th>Faixa/Grau</th>
-            <th>Mensalidade</th>
-            <th>Status financeiro</th>
+            <th>Modalidades</th>
+            <th>Status</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {linhas.map((aluno) => {
-            const statusFinanceiro = getStatusFinanceiroAluno(aluno.id, MES_ATUAL, pagamentos)
+            const matriculas = matriculasDoAluno(aluno.id).filter((am) => am.status === 'ativo')
             return (
               <tr key={aluno.id}>
                 <td>{nomeDoProfile(aluno.profileId)}</td>
                 <td title={formatCpfFull(aluno.cpf)}>{maskCpf(aluno.cpf)}</td>
-                <td>{nomeDoProfile(aluno.professorId)}</td>
-                <td>{nomeModalidade(aluno.modalidadeId)}</td>
                 <td>
-                  <BeltPill faixa={aluno.faixaAtual} /> grau {aluno.grauAtual}
+                  {matriculas.length === 0 ? (
+                    '—'
+                  ) : (
+                    <ul className="feed">
+                      {matriculas.map((am) => {
+                        const statusFinanceiro = getStatusFinanceiroMatricula(am.id, MES_ATUAL, pagamentos)
+                        return (
+                          <li key={am.id}>
+                            <strong>{nomeModalidade(am.modalidadeId)}</strong> · Prof. {nomeDoProfile(am.professorId)} ·{' '}
+                            <BeltPill faixa={am.faixaAtual} /> grau {am.grauAtual} · {currency.format(am.mensalidadeValor)} ·{' '}
+                            <Badge tone={STATUS_FINANCEIRO_TONE[statusFinanceiro]}>{STATUS_FINANCEIRO_LABEL[statusFinanceiro]}</Badge>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
                 </td>
-                <td>{currency.format(aluno.mensalidadeValor)}</td>
                 <td>
-                  <Badge tone={STATUS_FINANCEIRO_TONE[statusFinanceiro]}>{STATUS_FINANCEIRO_LABEL[statusFinanceiro]}</Badge>
+                  <Badge tone={aluno.status === 'ativo' ? 'success' : 'neutral'}>
+                    {aluno.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                  </Badge>
                 </td>
                 <td className="table__actions">
                   <button type="button" onClick={() => abrirEdicao(aluno.id)}>

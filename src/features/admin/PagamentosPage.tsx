@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useAppData } from '../../state/AppDataContext'
-import { getTurmasDoAluno } from '../../domain/selectors'
 import { currency, formatMesReferencia } from '../../domain/format'
 import type { MetodoPagamento, StatusPagamento } from '../../domain/types'
 import { Badge } from '../../components/Badge'
@@ -19,7 +18,7 @@ const STATUS_PAGAMENTO_LABEL: Record<StatusPagamento, string> = {
 }
 
 export function PagamentosPage() {
-  const { profiles, alunos, turmas, pagamentos, currentAccount, confirmarPagamento } = useAppData()
+  const { profiles, alunos, alunoModalidades, turmas, modalidades, pagamentos, currentAccount, confirmarPagamento } = useAppData()
   const [filtroMes, setFiltroMes] = useState('')
   const [filtroProfessor, setFiltroProfessor] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('')
@@ -27,10 +26,12 @@ export function PagamentosPage() {
   const [metodoSelecionado, setMetodoSelecionado] = useState<MetodoPagamento>('pix')
 
   const nomeDoProfile = (profileId?: string) => profiles.find((p) => p.id === profileId)?.fullName ?? '—'
-  const nomeTurmas = (alunoId: string) => {
-    const aluno = alunos.find((a) => a.id === alunoId)
-    if (!aluno) return '—'
-    const nomes = getTurmasDoAluno(aluno, turmas).map((t) => t.nome)
+  const nomeModalidade = (id: string) => modalidades.find((m) => m.id === id)?.nome ?? '—'
+  const matricula = (alunoModalidadeId: string) => alunoModalidades.find((am) => am.id === alunoModalidadeId)
+  const nomeTurmas = (alunoModalidadeId: string) => {
+    const am = matricula(alunoModalidadeId)
+    if (!am) return '—'
+    const nomes = turmas.filter((t) => am.turmaIds.includes(t.id)).map((t) => t.nome)
     return nomes.length > 0 ? nomes.join(', ') : '—'
   }
 
@@ -39,14 +40,14 @@ export function PagamentosPage() {
     [pagamentos]
   )
   const professoresComAluno = useMemo(
-    () => Array.from(new Set(alunos.map((a) => a.professorId))),
-    [alunos]
+    () => Array.from(new Set(alunoModalidades.map((am) => am.professorId))),
+    [alunoModalidades]
   )
 
   const linhas = pagamentos.filter((p) => {
-    const aluno = alunos.find((a) => a.id === p.alunoId)
+    const am = matricula(p.alunoModalidadeId)
     const casaMes = !filtroMes || p.mesReferencia === filtroMes
-    const casaProfessor = !filtroProfessor || aluno?.professorId === filtroProfessor
+    const casaProfessor = !filtroProfessor || am?.professorId === filtroProfessor
     const casaStatus = !filtroStatus || p.status === filtroStatus
     return casaMes && casaProfessor && casaStatus
   })
@@ -93,6 +94,7 @@ export function PagamentosPage() {
         <thead>
           <tr>
             <th>Aluno</th>
+            <th>Modalidade</th>
             <th>Professor</th>
             <th>Turma</th>
             <th>Mês</th>
@@ -105,12 +107,14 @@ export function PagamentosPage() {
         </thead>
         <tbody>
           {linhas.map((pagamento) => {
-            const aluno = alunos.find((a) => a.id === pagamento.alunoId)
+            const am = matricula(pagamento.alunoModalidadeId)
+            const aluno = am ? alunos.find((a) => a.id === am.alunoId) : undefined
             return (
               <tr key={pagamento.id}>
                 <td>{nomeDoProfile(aluno?.profileId)}</td>
-                <td>{nomeDoProfile(aluno?.professorId)}</td>
-                <td>{nomeTurmas(pagamento.alunoId)}</td>
+                <td>{am ? nomeModalidade(am.modalidadeId) : '—'}</td>
+                <td>{nomeDoProfile(am?.professorId)}</td>
+                <td>{nomeTurmas(pagamento.alunoModalidadeId)}</td>
                 <td>{formatMesReferencia(pagamento.mesReferencia)}</td>
                 <td>{currency.format(pagamento.valor)}</td>
                 <td>

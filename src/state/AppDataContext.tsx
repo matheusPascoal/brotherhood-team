@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { Tables, TablesUpdate } from '../lib/database.types'
 import type {
   Aluno,
+  AlunoModalidade,
   AlunoStatus,
   AccountStatus,
   DiaSemana,
@@ -29,6 +30,7 @@ interface AppDataState {
   profiles: Profile[]
   professores: Professor[]
   alunos: Aluno[]
+  alunoModalidades: AlunoModalidade[]
   turmas: Turma[]
   pagamentos: Pagamento[]
   presencas: Presenca[]
@@ -63,17 +65,24 @@ export interface RegistroChamada {
   presente: boolean
 }
 
-export interface NovoAlunoInput {
-  fullName: string
-  email: string
-  senha: string
-  cpf: string
+export interface AlunoModalidadeInput {
+  // presente só ao editar uma matrícula que já existe
+  id?: string
   professorId: string
   modalidadeId: string
   faixaAtual: string
   grauAtual: number
   mensalidadeValor: number
   diaVencimento: number
+  turmaIds: string[]
+}
+
+export interface NovoAlunoInput {
+  fullName: string
+  email: string
+  senha: string
+  cpf: string
+  modalidades: AlunoModalidadeInput[]
 }
 
 export interface NovoModalidadeInput {
@@ -108,7 +117,7 @@ interface AppDataContextValue extends AppDataState {
   refetchData: () => Promise<void>
   confirmarPagamento: (pagamentoId: string, confirmadoPorId: string, metodo: MetodoPagamento) => Promise<ActionResult>
   definirPagamento: (
-    alunoId: string,
+    alunoModalidadeId: string,
     mesReferencia: string,
     pago: boolean,
     confirmadoPorId: string,
@@ -119,8 +128,17 @@ interface AppDataContextValue extends AppDataState {
   setProfessorStatus: (professorId: string, status: AccountStatus) => Promise<ActionResult>
   deleteProfessor: (professorId: string) => Promise<ActionResult>
   createAluno: (input: NovoAlunoInput) => Promise<ActionResult>
-  updateAluno: (alunoId: string, updates: Partial<NovoAlunoInput>) => Promise<ActionResult>
+  // escopoProfessorId: quando informado, só as matrículas desse professor
+  // entram no diff de modalidades — evita que um professor, ao editar um
+  // aluno que também faz outra modalidade com outro professor, apague ou
+  // inative a matrícula que não é dele.
+  updateAluno: (
+    alunoId: string,
+    updates: Partial<Omit<NovoAlunoInput, 'senha'>>,
+    escopoProfessorId?: string
+  ) => Promise<ActionResult>
   setAlunoStatus: (alunoId: string, status: AlunoStatus) => Promise<ActionResult>
+  setAlunoModalidadeStatus: (alunoModalidadeId: string, status: AlunoStatus) => Promise<ActionResult>
   deleteAluno: (alunoId: string) => Promise<ActionResult>
   createModalidade: (input: NovoModalidadeInput) => Promise<ActionResult>
   updateModalidade: (modalidadeId: string, updates: Partial<NovoModalidadeInput>) => Promise<ActionResult>
@@ -141,6 +159,7 @@ function emptyState(): AppDataState {
     profiles: [],
     professores: [],
     alunos: [],
+    alunoModalidades: [],
     turmas: [],
     pagamentos: [],
     presencas: [],
@@ -187,6 +206,18 @@ function mapAlunoRow(row: Tables<'alunos'>): Aluno {
     id: row.id,
     profileId: row.profile_id ?? undefined,
     cpf: row.cpf,
+    status: row.status,
+  }
+}
+
+interface AlunoModalidadeRowWithJunction extends Tables<'aluno_modalidades'> {
+  aluno_turmas: { turma_id: string }[]
+}
+
+function mapAlunoModalidadeRow(row: AlunoModalidadeRowWithJunction): AlunoModalidade {
+  return {
+    id: row.id,
+    alunoId: row.aluno_id,
     professorId: row.professor_id,
     modalidadeId: row.modalidade_id,
     faixaAtual: row.faixa_atual,
@@ -194,6 +225,7 @@ function mapAlunoRow(row: Tables<'alunos'>): Aluno {
     mensalidadeValor: Number(row.mensalidade_valor),
     diaVencimento: row.dia_vencimento,
     status: row.status,
+    turmaIds: row.aluno_turmas.map((at) => at.turma_id),
   }
 }
 
@@ -214,7 +246,7 @@ function mapTurmaRow(row: Tables<'turmas'>): Turma {
 function mapPagamentoRow(row: Tables<'pagamentos'>): Pagamento {
   return {
     id: row.id,
-    alunoId: row.aluno_id,
+    alunoModalidadeId: row.aluno_modalidade_id,
     mesReferencia: row.mes_referencia,
     valor: Number(row.valor),
     status: row.status,
@@ -239,7 +271,7 @@ function mapPresencaRow(row: Tables<'presencas'>): Presenca {
 function mapGraduacaoRow(row: Tables<'graduacoes_historico'>): GraduacaoHistorico {
   return {
     id: row.id,
-    alunoId: row.aluno_id,
+    alunoModalidadeId: row.aluno_modalidade_id,
     faixa: row.faixa,
     grau: row.grau,
     dataGraduacao: row.data_graduacao,
@@ -292,6 +324,11 @@ async function fetchAlunos(): Promise<Aluno[]> {
   return (data ?? []).map(mapAlunoRow)
 }
 
+async function fetchAlunoModalidades(): Promise<AlunoModalidade[]> {
+  const { data } = await supabase.from('aluno_modalidades').select('*, aluno_turmas(turma_id)')
+  return ((data ?? []) as unknown as AlunoModalidadeRowWithJunction[]).map(mapAlunoModalidadeRow)
+}
+
 async function fetchTurmas(): Promise<Turma[]> {
   const { data } = await supabase.from('turmas').select('*')
   return (data ?? []).map(mapTurmaRow)
@@ -323,20 +360,44 @@ async function fetchMovimentos(): Promise<MovimentoEstoque[]> {
 }
 
 async function fetchAllTables(): Promise<AppDataState> {
-  const [profiles, modalidades, professores, alunos, turmas, pagamentos, presencas, graduacoesHistorico, materiais, movimentosEstoque] =
-    await Promise.all([
-      fetchProfiles(),
-      fetchModalidades(),
-      fetchProfessores(),
-      fetchAlunos(),
-      fetchTurmas(),
-      fetchPagamentos(),
-      fetchPresencas(),
-      fetchGraduacoes(),
-      fetchMateriais(),
-      fetchMovimentos(),
-    ])
-  return { profiles, modalidades, professores, alunos, turmas, pagamentos, presencas, graduacoesHistorico, materiais, movimentosEstoque }
+  const [
+    profiles,
+    modalidades,
+    professores,
+    alunos,
+    alunoModalidades,
+    turmas,
+    pagamentos,
+    presencas,
+    graduacoesHistorico,
+    materiais,
+    movimentosEstoque,
+  ] = await Promise.all([
+    fetchProfiles(),
+    fetchModalidades(),
+    fetchProfessores(),
+    fetchAlunos(),
+    fetchAlunoModalidades(),
+    fetchTurmas(),
+    fetchPagamentos(),
+    fetchPresencas(),
+    fetchGraduacoes(),
+    fetchMateriais(),
+    fetchMovimentos(),
+  ])
+  return {
+    profiles,
+    modalidades,
+    professores,
+    alunos,
+    alunoModalidades,
+    turmas,
+    pagamentos,
+    presencas,
+    graduacoesHistorico,
+    materiais,
+    movimentosEstoque,
+  }
 }
 
 function translateAuthError(message: string): string {
@@ -349,6 +410,9 @@ function translateAuthError(message: string): string {
 function translateDbError(message: string): string {
   if (message.toLowerCase().includes('foreign key constraint')) {
     return 'Não é possível remover: existem registros vinculados a este item.'
+  }
+  if (message.toLowerCase().includes('aluno_modalidades_aluno_id_modalidade_id_key')) {
+    return 'Este aluno já está matriculado nessa modalidade — edite o bloco existente em vez de adicionar outro.'
   }
   return message
 }
@@ -383,6 +447,36 @@ async function invokeAdminCreateUser(input: AdminCreateUserInput): Promise<{ id?
   }
   if (data?.error) return { error: data.error }
   return { id: data?.id }
+}
+
+// Insere uma ou mais matrículas (aluno_modalidades) para um aluno e, para
+// cada uma, as turmas escolhidas (aluno_turmas). Usado tanto na criação do
+// aluno quanto ao adicionar novas modalidades numa edição.
+async function inserirModalidadesDoAluno(alunoId: string, modalidades: AlunoModalidadeInput[]): Promise<ActionResult> {
+  for (const m of modalidades) {
+    const { data: matricula, error } = await supabase
+      .from('aluno_modalidades')
+      .insert({
+        aluno_id: alunoId,
+        professor_id: m.professorId,
+        modalidade_id: m.modalidadeId,
+        faixa_atual: m.faixaAtual,
+        grau_atual: m.grauAtual,
+        mensalidade_valor: m.mensalidadeValor,
+        dia_vencimento: m.diaVencimento,
+      })
+      .select()
+      .single()
+    if (error) return { success: false, error: translateDbError(error.message) }
+
+    if (m.turmaIds.length > 0) {
+      const { error: turmasError } = await supabase
+        .from('aluno_turmas')
+        .insert(m.turmaIds.map((turmaId) => ({ aluno_modalidade_id: matricula.id, turma_id: turmaId })))
+      if (turmasError) return { success: false, error: turmasError.message }
+    }
+  }
+  return { success: true }
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null)
@@ -500,25 +594,27 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     // Turmas não têm cobrança pré-gerada por mês (não há job que crie a linha
     // de pagamentos). Marcar "pago" faz upsert no índice único
-    // pagamentos(aluno_id, mes_referencia) — cria a cobrança do mês se ainda
-    // não existir. Marcar "não pago" só reverte uma cobrança já existente.
-    definirPagamento: async (alunoId, mesReferencia, pago, confirmadoPorId, metodo) => {
-      const aluno = state.alunos.find((a) => a.id === alunoId)
-      if (!aluno) return { success: false, error: 'Aluno não encontrado.' }
-      const existente = state.pagamentos.find((p) => p.alunoId === alunoId && p.mesReferencia === mesReferencia)
+    // pagamentos(aluno_modalidade_id, mes_referencia) — cria a cobrança do mês
+    // se ainda não existir. Marcar "não pago" só reverte uma cobrança existente.
+    definirPagamento: async (alunoModalidadeId, mesReferencia, pago, confirmadoPorId, metodo) => {
+      const alunoModalidade = state.alunoModalidades.find((am) => am.id === alunoModalidadeId)
+      if (!alunoModalidade) return { success: false, error: 'Matrícula não encontrada.' }
+      const existente = state.pagamentos.find(
+        (p) => p.alunoModalidadeId === alunoModalidadeId && p.mesReferencia === mesReferencia
+      )
 
       if (pago) {
         const { error } = await supabase.from('pagamentos').upsert(
           {
-            aluno_id: alunoId,
+            aluno_modalidade_id: alunoModalidadeId,
             mes_referencia: mesReferencia,
-            valor: existente?.valor ?? aluno.mensalidadeValor,
+            valor: existente?.valor ?? alunoModalidade.mensalidadeValor,
             status: 'confirmado',
             metodo: metodo ?? 'outro',
             confirmado_por: confirmadoPorId,
             confirmado_em: new Date().toISOString(),
           },
-          { onConflict: 'aluno_id,mes_referencia' }
+          { onConflict: 'aluno_modalidade_id,mes_referencia' }
         )
         if (error) return { success: false, error: error.message }
       } else if (existente) {
@@ -603,16 +699,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     },
 
     // Espelha as FKs "on delete restrict" de turmas.professor_id e
-    // alunos.professor_id (migrations 0007/0008): só remove se nada apontar
-    // para este professor. Apaga o profile — professores.profile_id tem "on
-    // delete cascade" (migration 0005), então a linha de professores some junto.
+    // aluno_modalidades.professor_id (migrations 0008/0033): só remove se
+    // nada apontar para este professor. Apaga o profile — professores.profile_id
+    // tem "on delete cascade" (migration 0005), então a linha de professores
+    // some junto.
     deleteProfessor: async (professorId) => {
       const professor = state.professores.find((p) => p.id === professorId)
       if (!professor) return { success: false, error: 'Professor não encontrado.' }
       if (state.turmas.some((t) => t.professorId === professor.profileId)) {
         return { success: false, error: 'Não é possível remover: há turmas vinculadas a este professor.' }
       }
-      if (state.alunos.some((a) => a.professorId === professor.profileId)) {
+      if (state.alunoModalidades.some((am) => am.professorId === professor.profileId)) {
         return { success: false, error: 'Não é possível remover: há alunos vinculados a este professor.' }
       }
       const { error } = await supabase.from('profiles').delete().eq('id', professor.profileId)
@@ -631,36 +728,30 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (!result.id) return { success: false, error: result.error ?? 'Não foi possível criar o aluno.' }
       const profileId = result.id
 
-      const { error } = await supabase.from('alunos').insert({
-        profile_id: profileId,
-        cpf: input.cpf,
-        professor_id: input.professorId,
-        modalidade_id: input.modalidadeId,
-        faixa_atual: input.faixaAtual,
-        grau_atual: input.grauAtual,
-        mensalidade_valor: input.mensalidadeValor,
-        dia_vencimento: input.diaVencimento,
-      })
-      if (error) return { success: false, error: error.message }
+      const { data: alunoRow, error: alunoError } = await supabase
+        .from('alunos')
+        .insert({ profile_id: profileId, cpf: input.cpf })
+        .select()
+        .single()
+      if (alunoError) return { success: false, error: alunoError.message }
 
-      await Promise.all([refetchTable('profiles', fetchProfiles), refetchTable('alunos', fetchAlunos)])
+      const modalidadeResult = await inserirModalidadesDoAluno(alunoRow.id, input.modalidades)
+      if (!modalidadeResult.success) return modalidadeResult
+
+      await Promise.all([
+        refetchTable('profiles', fetchProfiles),
+        refetchTable('alunos', fetchAlunos),
+        refetchTable('alunoModalidades', fetchAlunoModalidades),
+      ])
       return { success: true }
     },
 
-    updateAluno: async (alunoId, updates) => {
+    updateAluno: async (alunoId, updates, escopoProfessorId) => {
       const aluno = state.alunos.find((a) => a.id === alunoId)
       if (!aluno) return { success: false, error: 'Aluno não encontrado.' }
 
-      const alunoPayload: TablesUpdate<'alunos'> = {}
-      if (updates.cpf !== undefined) alunoPayload.cpf = updates.cpf
-      if (updates.professorId !== undefined) alunoPayload.professor_id = updates.professorId
-      if (updates.modalidadeId !== undefined) alunoPayload.modalidade_id = updates.modalidadeId
-      if (updates.faixaAtual !== undefined) alunoPayload.faixa_atual = updates.faixaAtual
-      if (updates.grauAtual !== undefined) alunoPayload.grau_atual = updates.grauAtual
-      if (updates.mensalidadeValor !== undefined) alunoPayload.mensalidade_valor = updates.mensalidadeValor
-      if (updates.diaVencimento !== undefined) alunoPayload.dia_vencimento = updates.diaVencimento
-      if (Object.keys(alunoPayload).length > 0) {
-        const { error } = await supabase.from('alunos').update(alunoPayload).eq('id', alunoId)
+      if (updates.cpf !== undefined) {
+        const { error } = await supabase.from('alunos').update({ cpf: updates.cpf }).eq('id', alunoId)
         if (error) return { success: false, error: error.message }
       }
 
@@ -672,7 +763,67 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         if (error) return { success: false, error: error.message }
       }
 
-      await Promise.all([refetchTable('alunos', fetchAlunos), refetchTable('profiles', fetchProfiles)])
+      if (updates.modalidades !== undefined) {
+        const atuais = state.alunoModalidades.filter(
+          (am) => am.alunoId === alunoId && (!escopoProfessorId || am.professorId === escopoProfessorId)
+        )
+        const idsSubmetidos = new Set(updates.modalidades.filter((m) => m.id).map((m) => m.id))
+
+        // Matrícula que saiu da lista: inativa em vez de apagar (pagamentos
+        // referenciam a matrícula com "on delete restrict").
+        const removidas = atuais.filter((am) => !idsSubmetidos.has(am.id))
+        for (const am of removidas) {
+          const { error } = await supabase.from('aluno_modalidades').update({ status: 'inativo' }).eq('id', am.id)
+          if (error) return { success: false, error: error.message }
+        }
+
+        const novas = updates.modalidades.filter((m) => !m.id)
+        const novasResult = await inserirModalidadesDoAluno(alunoId, novas)
+        if (!novasResult.success) return novasResult
+
+        const existentes = updates.modalidades.filter((m): m is AlunoModalidadeInput & { id: string } => !!m.id)
+        for (const m of existentes) {
+          const { error: updateError } = await supabase
+            .from('aluno_modalidades')
+            .update({
+              professor_id: m.professorId,
+              faixa_atual: m.faixaAtual,
+              grau_atual: m.grauAtual,
+              mensalidade_valor: m.mensalidadeValor,
+              dia_vencimento: m.diaVencimento,
+              status: 'ativo',
+            })
+            .eq('id', m.id)
+          if (updateError) return { success: false, error: updateError.message }
+
+          const atual = atuais.find((am) => am.id === m.id)
+          const turmasAtuais = new Set(atual?.turmaIds ?? [])
+          const turmasNovas = new Set(m.turmaIds)
+          const paraRemover = [...turmasAtuais].filter((id) => !turmasNovas.has(id))
+          const paraAdicionar = [...turmasNovas].filter((id) => !turmasAtuais.has(id))
+
+          if (paraRemover.length > 0) {
+            const { error: delError } = await supabase
+              .from('aluno_turmas')
+              .delete()
+              .eq('aluno_modalidade_id', m.id)
+              .in('turma_id', paraRemover)
+            if (delError) return { success: false, error: delError.message }
+          }
+          if (paraAdicionar.length > 0) {
+            const { error: insError } = await supabase
+              .from('aluno_turmas')
+              .insert(paraAdicionar.map((turmaId) => ({ aluno_modalidade_id: m.id!, turma_id: turmaId })))
+            if (insError) return { success: false, error: insError.message }
+          }
+        }
+      }
+
+      await Promise.all([
+        refetchTable('alunos', fetchAlunos),
+        refetchTable('profiles', fetchProfiles),
+        refetchTable('alunoModalidades', fetchAlunoModalidades),
+      ])
       return { success: true }
     },
 
@@ -683,14 +834,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       return { success: true }
     },
 
-    // Espelha pagamentos.aluno_id "on delete restrict" (migration 0009): só
-    // remove se não houver pagamento registrado. presencas/graduacoes_historico
-    // cascateiam no Postgres (migrations 0010/0011); o profile (login próprio)
-    // é removido explicitamente, já que alunos.profile_id é "on delete set null".
+    setAlunoModalidadeStatus: async (alunoModalidadeId, status) => {
+      const { error } = await supabase.from('aluno_modalidades').update({ status }).eq('id', alunoModalidadeId)
+      if (error) return { success: false, error: error.message }
+      await refetchTable('alunoModalidades', fetchAlunoModalidades)
+      return { success: true }
+    },
+
+    // Espelha pagamentos.aluno_modalidade_id "on delete restrict" (migration
+    // 0034): só remove se nenhuma das modalidades do aluno tiver pagamento
+    // registrado. presencas/graduacoes_historico cascateiam no Postgres; o
+    // profile (login próprio) é removido explicitamente, já que
+    // alunos.profile_id é "on delete set null".
     deleteAluno: async (alunoId) => {
       const aluno = state.alunos.find((a) => a.id === alunoId)
       if (!aluno) return { success: false, error: 'Aluno não encontrado.' }
-      if (state.pagamentos.some((p) => p.alunoId === alunoId)) {
+      const matriculasIds = new Set(state.alunoModalidades.filter((am) => am.alunoId === alunoId).map((am) => am.id))
+      if (state.pagamentos.some((p) => matriculasIds.has(p.alunoModalidadeId))) {
         return { success: false, error: 'Não é possível remover: há pagamentos registrados para este aluno.' }
       }
       const { error } = await supabase.from('alunos').delete().eq('id', alunoId)
@@ -700,6 +860,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
       await Promise.all([
         refetchTable('alunos', fetchAlunos),
+        refetchTable('alunoModalidades', fetchAlunoModalidades),
         refetchTable('profiles', fetchProfiles),
         refetchTable('presencas', fetchPresencas),
         refetchTable('graduacoesHistorico', fetchGraduacoes),
@@ -724,13 +885,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       return { success: true }
     },
 
-    // Espelha professor_modalidades/alunos/turmas.modalidade_id "on delete
-    // restrict" (migrations 0006/0007/0008).
+    // Espelha professor_modalidades/aluno_modalidades/turmas.modalidade_id
+    // "on delete restrict" (migrations 0006/0033/0008).
     deleteModalidade: async (modalidadeId) => {
       if (state.professores.some((p) => p.modalidadeIds.includes(modalidadeId))) {
         return { success: false, error: 'Não é possível remover: há professores vinculados a esta modalidade.' }
       }
-      if (state.alunos.some((a) => a.modalidadeId === modalidadeId)) {
+      if (state.alunoModalidades.some((am) => am.modalidadeId === modalidadeId)) {
         return { success: false, error: 'Não é possível remover: há alunos vinculados a esta modalidade.' }
       }
       if (state.turmas.some((t) => t.modalidadeId === modalidadeId)) {

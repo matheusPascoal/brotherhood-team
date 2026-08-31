@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAppData } from '../../state/AppDataContext'
-import { getAlunosDaTurma, getStatusFinanceiroAluno } from '../../domain/selectors'
+import { getAlunosDaTurma, getStatusFinanceiroMatricula } from '../../domain/selectors'
 import { currency, formatMesReferencia } from '../../domain/format'
 import { MES_ATUAL } from '../../mocks/mockData'
 import type { DiaSemana, MetodoPagamento } from '../../domain/types'
@@ -30,7 +30,7 @@ const DIA_LABEL: Record<DiaSemana, string> = {
 }
 
 export function PagamentosTurmasPage() {
-  const { currentAccount, profiles, alunos, turmas, modalidades, pagamentos, definirPagamento } = useAppData()
+  const { currentAccount, profiles, alunos, alunoModalidades, turmas, modalidades, pagamentos, definirPagamento } = useAppData()
   const [mesReferencia, setMesReferencia] = useState(MES_ATUAL)
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
   const [metodoSelecionado, setMetodoSelecionado] = useState<MetodoPagamento>('pix')
@@ -43,21 +43,21 @@ export function PagamentosTurmasPage() {
   const minhasTurmas = turmas.filter((t) => t.professorId === professorId)
 
   const mesesDisponiveis = useMemo(() => {
-    const meusAlunosIds = new Set(alunos.filter((a) => a.professorId === professorId).map((a) => a.id))
-    const meses = new Set(pagamentos.filter((p) => meusAlunosIds.has(p.alunoId)).map((p) => p.mesReferencia))
+    const minhasMatriculasIds = new Set(alunoModalidades.filter((am) => am.professorId === professorId).map((am) => am.id))
+    const meses = new Set(pagamentos.filter((p) => minhasMatriculasIds.has(p.alunoModalidadeId)).map((p) => p.mesReferencia))
     meses.add(MES_ATUAL)
     return Array.from(meses).sort().reverse()
-  }, [alunos, pagamentos, professorId])
+  }, [alunoModalidades, pagamentos, professorId])
 
-  async function marcarComoPago(alunoId: string) {
-    const result = await definirPagamento(alunoId, mesReferencia, true, professorId, metodoSelecionado)
+  async function marcarComoPago(alunoModalidadeId: string) {
+    const result = await definirPagamento(alunoModalidadeId, mesReferencia, true, professorId, metodoSelecionado)
     if (!result.success) alert(result.error)
     setConfirmandoId(null)
   }
 
-  async function marcarComoNaoPago(alunoId: string) {
+  async function marcarComoNaoPago(alunoModalidadeId: string) {
     if (!window.confirm('Marcar este pagamento como não pago?')) return
-    const result = await definirPagamento(alunoId, mesReferencia, false, professorId)
+    const result = await definirPagamento(alunoModalidadeId, mesReferencia, false, professorId)
     if (!result.success) alert(result.error)
   }
 
@@ -78,7 +78,7 @@ export function PagamentosTurmasPage() {
       {minhasTurmas.length === 0 && <p className="empty-state">Você ainda não tem turmas cadastradas.</p>}
 
       {minhasTurmas.map((turma) => {
-        const alunosDaTurma = getAlunosDaTurma(turma, alunos)
+        const alunosDaTurma = getAlunosDaTurma(turma, alunos, alunoModalidades)
         return (
           <section className="panel" key={turma.id}>
             <h2>
@@ -99,21 +99,25 @@ export function PagamentosTurmasPage() {
                 </thead>
                 <tbody>
                   {alunosDaTurma.map((aluno) => {
-                    const status = getStatusFinanceiroAluno(aluno.id, mesReferencia, pagamentos)
+                    const matricula = alunoModalidades.find(
+                      (am) => am.alunoId === aluno.id && am.status === 'ativo' && am.turmaIds.includes(turma.id)
+                    )
+                    if (!matricula) return null
+                    const status = getStatusFinanceiroMatricula(matricula.id, mesReferencia, pagamentos)
                     const pago = status === 'adimplente'
                     return (
                       <tr key={aluno.id}>
                         <td>{nomeDoProfile(aluno.profileId)}</td>
-                        <td>{currency.format(aluno.mensalidadeValor)}</td>
+                        <td>{currency.format(matricula.mensalidadeValor)}</td>
                         <td>
                           <Badge tone={STATUS_FINANCEIRO_TONE[status]}>{STATUS_FINANCEIRO_LABEL[status]}</Badge>
                         </td>
                         <td className="table__actions">
                           {pago ? (
-                            <button type="button" onClick={() => marcarComoNaoPago(aluno.id)}>
+                            <button type="button" onClick={() => marcarComoNaoPago(matricula.id)}>
                               Marcar como não pago
                             </button>
-                          ) : confirmandoId === aluno.id ? (
+                          ) : confirmandoId === matricula.id ? (
                             <>
                               <select value={metodoSelecionado} onChange={(e) => setMetodoSelecionado(e.target.value as MetodoPagamento)}>
                                 <option value="pix">Pix</option>
@@ -121,12 +125,12 @@ export function PagamentosTurmasPage() {
                                 <option value="cartao">Cartão</option>
                                 <option value="outro">Outro</option>
                               </select>
-                              <button type="button" className="btn btn-primary btn-sm" onClick={() => marcarComoPago(aluno.id)}>
+                              <button type="button" className="btn btn-primary btn-sm" onClick={() => marcarComoPago(matricula.id)}>
                                 OK
                               </button>
                             </>
                           ) : (
-                            <button type="button" className="btn btn-primary btn-sm" onClick={() => setConfirmandoId(aluno.id)}>
+                            <button type="button" className="btn btn-primary btn-sm" onClick={() => setConfirmandoId(matricula.id)}>
                               Marcar como pago
                             </button>
                           )}

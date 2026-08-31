@@ -7,10 +7,10 @@ interface Props {
 }
 
 export function PainelProfessorPage({ onNavigate }: Props) {
-  const { currentAccount, alunos, pagamentos, turmas } = useAppData()
+  const { currentAccount, alunoModalidades, pagamentos, turmas } = useAppData()
   if (!currentAccount) return null
 
-  const painel = computePainelProfessor(currentAccount.id, { alunos, pagamentos, turmas })
+  const painel = computePainelProfessor(currentAccount.id, { alunoModalidades, pagamentos, turmas })
 
   return (
     <div className="page">

@@ -12,7 +12,7 @@ function parseFaixas(texto: string): string[] {
 }
 
 export function ModalidadesPage() {
-  const { modalidades, professores, alunos, turmas, createModalidade, updateModalidade, deleteModalidade } = useAppData()
+  const { modalidades, professores, alunoModalidades, turmas, createModalidade, updateModalidade, deleteModalidade } = useAppData()
   const [busca, setBusca] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -25,7 +25,8 @@ export function ModalidadesPage() {
 
   const professoresCount = (modalidadeId: string) =>
     professores.filter((p) => p.modalidadeIds.includes(modalidadeId)).length
-  const alunosCount = (modalidadeId: string) => alunos.filter((a) => a.modalidadeId === modalidadeId).length
+  const alunosCount = (modalidadeId: string) =>
+    new Set(alunoModalidades.filter((am) => am.modalidadeId === modalidadeId).map((am) => am.alunoId)).size
   const turmasCount = (modalidadeId: string) => turmas.filter((t) => t.modalidadeId === modalidadeId).length
 
   function abrirCadastro() {

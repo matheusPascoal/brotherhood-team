@@ -1,10 +1,25 @@
 import { MES_ATUAL, META_MENSAL_PREVISTA } from '../mocks/mockData'
-import type { Aluno, GraduacaoHistorico, Material, Modalidade, MovimentoEstoque, Pagamento, Profile, Professor, Turma } from './types'
+import type {
+  Aluno,
+  AlunoModalidade,
+  GraduacaoHistorico,
+  Material,
+  Modalidade,
+  MovimentoEstoque,
+  Pagamento,
+  Profile,
+  Professor,
+  Turma,
+} from './types'
 
 export type StatusFinanceiro = 'adimplente' | 'inadimplente' | 'sem_cobranca'
 
-export function getStatusFinanceiroAluno(alunoId: string, mesReferencia: string, pagamentos: Pagamento[]): StatusFinanceiro {
-  const pagamento = pagamentos.find((p) => p.alunoId === alunoId && p.mesReferencia === mesReferencia)
+export function getStatusFinanceiroMatricula(
+  alunoModalidadeId: string,
+  mesReferencia: string,
+  pagamentos: Pagamento[]
+): StatusFinanceiro {
+  const pagamento = pagamentos.find((p) => p.alunoModalidadeId === alunoModalidadeId && p.mesReferencia === mesReferencia)
   if (!pagamento) return 'sem_cobranca'
   return pagamento.status === 'confirmado' ? 'adimplente' : 'inadimplente'
 }
@@ -29,12 +44,14 @@ interface OverviewInput {
   profiles: Profile[]
   professores: Professor[]
   alunos: Aluno[]
+  alunoModalidades: AlunoModalidade[]
   pagamentos: Pagamento[]
 }
 
-export function computeAdminOverview({ profiles, professores, alunos, pagamentos }: OverviewInput): AdminOverview {
+export function computeAdminOverview({ profiles, professores, alunos, alunoModalidades, pagamentos }: OverviewInput): AdminOverview {
   const nomeDoProfile = (profileId: string) => profiles.find((p) => p.id === profileId)?.fullName ?? '—'
   const pagamentosDoMes = pagamentos.filter((p) => p.mesReferencia === MES_ATUAL)
+  const matriculaPorId = (id: string) => alunoModalidades.find((am) => am.id === id)
 
   const receitaMensal = pagamentosDoMes
     .filter((p) => p.status === 'confirmado')
@@ -46,9 +63,11 @@ export function computeAdminOverview({ profiles, professores, alunos, pagamentos
 
   const rankingProfessores = professores
     .map((professor) => {
-      const alunosDoProfessor = new Set(alunos.filter((a) => a.professorId === professor.profileId).map((a) => a.id))
+      const matriculasDoProfessor = new Set(
+        alunoModalidades.filter((am) => am.professorId === professor.profileId).map((am) => am.id)
+      )
       const valorArrecadado = pagamentosDoMes
-        .filter((p) => p.status === 'confirmado' && alunosDoProfessor.has(p.alunoId))
+        .filter((p) => p.status === 'confirmado' && matriculasDoProfessor.has(p.alunoModalidadeId))
         .reduce((sum, p) => sum + p.valor, 0)
       return { professorId: professor.profileId, nome: nomeDoProfile(professor.profileId), valorArrecadado }
     })
@@ -57,13 +76,17 @@ export function computeAdminOverview({ profiles, professores, alunos, pagamentos
   const feedPagamentosConfirmados = pagamentosDoMes
     .filter((p) => p.status === 'confirmado' && p.confirmadoEm)
     .sort((a, b) => (b.confirmadoEm ?? '').localeCompare(a.confirmadoEm ?? ''))
-    .map((p) => ({
-      pagamentoId: p.id,
-      alunoNome: nomeDoProfile(alunos.find((a) => a.id === p.alunoId)?.profileId ?? ''),
-      valor: p.valor,
-      metodo: p.metodo,
-      confirmadoEm: p.confirmadoEm,
-    }))
+    .map((p) => {
+      const matricula = matriculaPorId(p.alunoModalidadeId)
+      const aluno = matricula ? alunos.find((a) => a.id === matricula.alunoId) : undefined
+      return {
+        pagamentoId: p.id,
+        alunoNome: nomeDoProfile(aluno?.profileId ?? ''),
+        valor: p.valor,
+        metodo: p.metodo,
+        confirmadoEm: p.confirmadoEm,
+      }
+    })
 
   return {
     receitaMensal,
@@ -87,7 +110,7 @@ export interface RelatorioMensal {
 
 export function computeRelatorioMensal(
   mesReferencia: string,
-  { profiles, professores, alunos, pagamentos }: OverviewInput
+  { profiles, professores, alunoModalidades, pagamentos }: OverviewInput
 ): RelatorioMensal {
   const nomeDoProfile = (profileId: string) => profiles.find((p) => p.id === profileId)?.fullName ?? '—'
   const pagamentosDoMes = pagamentos.filter((p) => p.mesReferencia === mesReferencia)
@@ -99,8 +122,10 @@ export function computeRelatorioMensal(
   const previstoTotal = pagamentosDoMes.reduce((sum, p) => sum + p.valor, 0)
 
   const porProfessor = professores.map((professor) => {
-    const alunosDoProfessor = new Set(alunos.filter((a) => a.professorId === professor.profileId).map((a) => a.id))
-    const pagamentosDoProfessor = pagamentosDoMes.filter((p) => alunosDoProfessor.has(p.alunoId))
+    const matriculasDoProfessor = new Set(
+      alunoModalidades.filter((am) => am.professorId === professor.profileId).map((am) => am.id)
+    )
+    const pagamentosDoProfessor = pagamentosDoMes.filter((p) => matriculasDoProfessor.has(p.alunoModalidadeId))
     return {
       professorId: professor.profileId,
       nome: nomeDoProfile(professor.profileId),
@@ -122,15 +147,20 @@ export function computeRelatorioMensal(
   }
 }
 
-// Turmas não têm matrícula própria — a "grade" de um aluno/turma é a
-// interseção professor+modalidade, igual à política de RLS da Fase 2
-// (turmas_select_aluno).
-export function getAlunosDaTurma(turma: Turma, alunos: Aluno[]): Aluno[] {
-  return alunos.filter((a) => a.professorId === turma.professorId && a.modalidadeId === turma.modalidadeId && a.status === 'ativo')
+// Matrícula em turma é explícita (aluno_turmas) — o professor escolhe a(s)
+// turma(s) específica(s) de cada modalidade do aluno.
+export function getAlunosDaTurma(turma: Turma, alunos: Aluno[], alunoModalidades: AlunoModalidade[]): Aluno[] {
+  const alunoIds = new Set(
+    alunoModalidades.filter((am) => am.status === 'ativo' && am.turmaIds.includes(turma.id)).map((am) => am.alunoId)
+  )
+  return alunos.filter((a) => alunoIds.has(a.id) && a.status === 'ativo')
 }
 
-export function getTurmasDoAluno(aluno: Aluno, turmas: Turma[]): Turma[] {
-  return turmas.filter((t) => t.professorId === aluno.professorId && t.modalidadeId === aluno.modalidadeId)
+export function getTurmasDoAluno(aluno: Aluno, turmas: Turma[], alunoModalidades: AlunoModalidade[]): Turma[] {
+  const turmaIds = new Set(
+    alunoModalidades.filter((am) => am.alunoId === aluno.id).flatMap((am) => am.turmaIds)
+  )
+  return turmas.filter((t) => turmaIds.has(t.id))
 }
 
 export interface PainelProfessor {
@@ -142,33 +172,44 @@ export interface PainelProfessor {
 
 export function computePainelProfessor(
   professorProfileId: string,
-  { alunos, pagamentos, turmas }: { alunos: Aluno[]; pagamentos: Pagamento[]; turmas: Turma[] }
+  {
+    alunoModalidades,
+    pagamentos,
+    turmas,
+  }: { alunoModalidades: AlunoModalidade[]; pagamentos: Pagamento[]; turmas: Turma[] }
 ): PainelProfessor {
-  const meusAlunosIds = new Set(alunos.filter((a) => a.professorId === professorProfileId).map((a) => a.id))
-  const pagamentosDoMes = pagamentos.filter((p) => p.mesReferencia === MES_ATUAL && meusAlunosIds.has(p.alunoId))
+  const minhasMatriculas = alunoModalidades.filter((am) => am.professorId === professorProfileId)
+  const minhasMatriculasIds = new Set(minhasMatriculas.map((am) => am.id))
+  const pagamentosDoMes = pagamentos.filter((p) => p.mesReferencia === MES_ATUAL && minhasMatriculasIds.has(p.alunoModalidadeId))
 
   return {
-    meusAlunos: alunos.filter((a) => a.professorId === professorProfileId && a.status === 'ativo').length,
+    meusAlunos: new Set(minhasMatriculas.filter((am) => am.status === 'ativo').map((am) => am.alunoId)).size,
     turmasAtivas: turmas.filter((t) => t.professorId === professorProfileId).length,
     arrecadadoMes: pagamentosDoMes.filter((p) => p.status === 'confirmado').reduce((sum, p) => sum + p.valor, 0),
     pagamentosPendentes: pagamentosDoMes.filter((p) => p.status === 'pendente' || p.status === 'atrasado').length,
   }
 }
 
-export interface PainelAluno {
-  aluno: Aluno
+export interface PainelAlunoMatricula {
+  alunoModalidade: AlunoModalidade
   professorNome: string
   modalidadeNome: string
   statusFinanceiroMes: StatusFinanceiro
   historicoPagamentos: Pagamento[]
-  turmasDaModalidade: Turma[]
+  turmas: Turma[]
   graduacoes: GraduacaoHistorico[]
+}
+
+export interface PainelAluno {
+  aluno: Aluno
+  matriculas: PainelAlunoMatricula[]
 }
 
 export function computePainelAluno(
   alunoId: string,
   {
     alunos,
+    alunoModalidades,
     profiles,
     modalidades,
     pagamentos,
@@ -176,6 +217,7 @@ export function computePainelAluno(
     graduacoesHistorico,
   }: {
     alunos: Aluno[]
+    alunoModalidades: AlunoModalidade[]
     profiles: Profile[]
     modalidades: Modalidade[]
     pagamentos: Pagamento[]
@@ -186,19 +228,23 @@ export function computePainelAluno(
   const aluno = alunos.find((a) => a.id === alunoId)
   if (!aluno) return null
 
-  return {
-    aluno,
-    professorNome: profiles.find((p) => p.id === aluno.professorId)?.fullName ?? '—',
-    modalidadeNome: modalidades.find((m) => m.id === aluno.modalidadeId)?.nome ?? '—',
-    statusFinanceiroMes: getStatusFinanceiroAluno(aluno.id, MES_ATUAL, pagamentos),
-    historicoPagamentos: pagamentos
-      .filter((p) => p.alunoId === aluno.id)
-      .sort((a, b) => b.mesReferencia.localeCompare(a.mesReferencia)),
-    turmasDaModalidade: getTurmasDoAluno(aluno, turmas),
-    graduacoes: graduacoesHistorico
-      .filter((g) => g.alunoId === aluno.id)
-      .sort((a, b) => b.dataGraduacao.localeCompare(a.dataGraduacao)),
-  }
+  const matriculas = alunoModalidades
+    .filter((am) => am.alunoId === aluno.id)
+    .map((alunoModalidade) => ({
+      alunoModalidade,
+      professorNome: profiles.find((p) => p.id === alunoModalidade.professorId)?.fullName ?? '—',
+      modalidadeNome: modalidades.find((m) => m.id === alunoModalidade.modalidadeId)?.nome ?? '—',
+      statusFinanceiroMes: getStatusFinanceiroMatricula(alunoModalidade.id, MES_ATUAL, pagamentos),
+      historicoPagamentos: pagamentos
+        .filter((p) => p.alunoModalidadeId === alunoModalidade.id)
+        .sort((a, b) => b.mesReferencia.localeCompare(a.mesReferencia)),
+      turmas: turmas.filter((t) => alunoModalidade.turmaIds.includes(t.id)),
+      graduacoes: graduacoesHistorico
+        .filter((g) => g.alunoModalidadeId === alunoModalidade.id)
+        .sort((a, b) => b.dataGraduacao.localeCompare(a.dataGraduacao)),
+    }))
+
+  return { aluno, matriculas }
 }
 
 export interface EstoqueItem {
