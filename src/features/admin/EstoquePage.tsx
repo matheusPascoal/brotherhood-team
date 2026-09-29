@@ -6,6 +6,7 @@ import { currency, formatDataLocal } from '../../domain/format'
 import { MES_ATUAL } from '../../mocks/mockData'
 import type { TipoMovimentoEstoque } from '../../domain/types'
 import { Badge } from '../../components/Badge'
+import { Pagination, usePagination } from '../../components/Pagination'
 
 const EMPTY_MATERIAL_FORM: NovoMaterialInput = { nome: '', categoria: '', unidade: 'unidade', estoqueMinimo: 0, precoUnitario: 0 }
 const EMPTY_MOVIMENTO_FORM: Omit<NovoMovimentoEstoqueInput, 'materialId'> = {
@@ -39,13 +40,15 @@ export function EstoquePage() {
   const [movimentoForm, setMovimentoForm] = useState(EMPTY_MOVIMENTO_FORM)
   const [erroMovimento, setErroMovimento] = useState('')
 
-  if (!currentAccount) return null
-  const registradoPorId = currentAccount.id
-
   const estoque = computeEstoqueAtual(materiais, movimentosEstoque)
   const overview = computeEstoqueOverview(estoque, movimentosEstoque)
 
   const linhas = estoque.filter((item) => item.material.nome.toLowerCase().includes(busca.toLowerCase()))
+  const { page, pageSize, setPage, setPageSize } = usePagination(linhas.length)
+  const linhasPagina = linhas.slice((page - 1) * pageSize, page * pageSize)
+
+  if (!currentAccount) return null
+  const registradoPorId = currentAccount.id
   const nomeDoMaterial = (materialId: string) => materiais.find((m) => m.id === materialId)?.nome ?? '—'
   const historico = [...movimentosEstoque].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 15)
 
@@ -295,7 +298,7 @@ export function EstoquePage() {
           </tr>
         </thead>
         <tbody>
-          {linhas.map((item) => (
+          {linhasPagina.map((item) => (
             <tr key={item.material.id}>
               <td>{item.material.nome}</td>
               <td>{item.material.categoria || '—'}</td>
@@ -335,6 +338,7 @@ export function EstoquePage() {
           ))}
         </tbody>
       </table>
+      <Pagination page={page} pageSize={pageSize} total={linhas.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
 
       <section className="panel" style={{ marginTop: 'var(--space-5)' }}>
         <div className="panel__header">

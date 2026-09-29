@@ -978,6 +978,39 @@ button:not([class*='btn']):not(.tab):hover {
   }
 }
 
+/* ============ Pagination ============ */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-top: var(--space-3);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  font-size: var(--text-small);
+  color: var(--color-text-secondary);
+}
+
+.pagination__size {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pagination__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.pagination__page {
+  white-space: nowrap;
+}
+
 .feed {
   list-style: none;
   padding: 0;

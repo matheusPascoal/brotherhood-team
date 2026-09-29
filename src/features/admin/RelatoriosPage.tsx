@@ -3,6 +3,7 @@ import { useAppData } from '../../state/AppDataContext'
 import { computeRelatorioMensal } from '../../domain/selectors'
 import { currency, formatMesReferencia } from '../../domain/format'
 import { MES_ATUAL } from '../../mocks/mockData'
+import { Pagination, usePagination } from '../../components/Pagination'
 
 export function RelatoriosPage() {
   const { profiles, professores, alunos, alunoModalidades, pagamentos } = useAppData()
@@ -13,6 +14,8 @@ export function RelatoriosPage() {
   const [mesSelecionado, setMesSelecionado] = useState(MES_ATUAL)
 
   const relatorio = computeRelatorioMensal(mesSelecionado, { profiles, professores, alunos, alunoModalidades, pagamentos })
+  const { page, pageSize, setPage, setPageSize } = usePagination(relatorio.porProfessor.length)
+  const linhasPagina = relatorio.porProfessor.slice((page - 1) * pageSize, page * pageSize)
 
   function exportar(formato: 'excel' | 'pdf') {
     alert(`Exportação em ${formato.toUpperCase()} entra na Fase 7 do plano (hoje é só o botão, como no protótipo).`)
@@ -69,7 +72,7 @@ export function RelatoriosPage() {
             </tr>
           </thead>
           <tbody>
-            {relatorio.porProfessor.map((row) => (
+            {linhasPagina.map((row) => (
               <tr key={row.professorId}>
                 <td>{row.nome}</td>
                 <td>{currency.format(row.arrecadado)}</td>
@@ -79,6 +82,13 @@ export function RelatoriosPage() {
             ))}
           </tbody>
         </table>
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={relatorio.porProfessor.length}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </section>
     </div>
   )

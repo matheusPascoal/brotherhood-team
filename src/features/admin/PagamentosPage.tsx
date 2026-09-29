@@ -4,6 +4,7 @@ import { currency, formatMesReferencia } from '../../domain/format'
 import type { MetodoPagamento, StatusPagamento } from '../../domain/types'
 import { Badge } from '../../components/Badge'
 import type { BadgeTone } from '../../components/Badge'
+import { Pagination, usePagination } from '../../components/Pagination'
 
 const STATUS_PAGAMENTO_TONE: Record<StatusPagamento, BadgeTone> = {
   confirmado: 'success',
@@ -51,6 +52,8 @@ export function PagamentosPage() {
     const casaStatus = !filtroStatus || p.status === filtroStatus
     return casaMes && casaProfessor && casaStatus
   })
+  const { page, pageSize, setPage, setPageSize } = usePagination(linhas.length)
+  const linhasPagina = linhas.slice((page - 1) * pageSize, page * pageSize)
 
   if (!currentAccount) return null
   const confirmadoPorId = currentAccount.id
@@ -106,7 +109,7 @@ export function PagamentosPage() {
           </tr>
         </thead>
         <tbody>
-          {linhas.map((pagamento) => {
+          {linhasPagina.map((pagamento) => {
             const am = matricula(pagamento.alunoModalidadeId)
             const aluno = am ? alunos.find((a) => a.id === am.alunoId) : undefined
             return (
@@ -147,6 +150,7 @@ export function PagamentosPage() {
           })}
         </tbody>
       </table>
+      <Pagination page={page} pageSize={pageSize} total={linhas.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
     </div>
   )
 }

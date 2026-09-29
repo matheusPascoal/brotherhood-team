@@ -6,6 +6,7 @@ import { MES_ATUAL } from '../../mocks/mockData'
 import { Badge, BeltPill } from '../../components/Badge'
 import type { BadgeTone } from '../../components/Badge'
 import { AlunoModalidadesForm } from '../shared/AlunoModalidadesForm'
+import { Pagination, usePagination } from '../../components/Pagination'
 
 const STATUS_FINANCEIRO_TONE: Record<string, BadgeTone> = {
   adimplente: 'success',
@@ -56,6 +57,8 @@ export function AlunosPage() {
       minhasMatriculas.some((am) => getStatusFinanceiroMatricula(am.id, MES_ATUAL, pagamentos) === filtroStatusFinanceiro)
     return casaBusca && casaProfessor && casaStatus
   })
+  const { page, pageSize, setPage, setPageSize } = usePagination(linhas.length)
+  const linhasPagina = linhas.slice((page - 1) * pageSize, page * pageSize)
 
   function abrirCadastro() {
     setEditingId(null)
@@ -226,7 +229,7 @@ export function AlunosPage() {
           </tr>
         </thead>
         <tbody>
-          {linhas.map((aluno) => {
+          {linhasPagina.map((aluno) => {
             const matriculas = matriculasDoAluno(aluno.id).filter((am) => am.status === 'ativo')
             return (
               <tr key={aluno.id}>
@@ -277,6 +280,7 @@ export function AlunosPage() {
           })}
         </tbody>
       </table>
+      <Pagination page={page} pageSize={pageSize} total={linhas.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
     </div>
   )
 }

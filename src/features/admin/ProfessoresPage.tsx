@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppData, type NovoProfessorInput } from '../../state/AppDataContext'
 import { Badge } from '../../components/Badge'
+import { Pagination, usePagination } from '../../components/Pagination'
 
 const EMPTY_FORM: NovoProfessorInput = { fullName: '', email: '', senha: '', phone: '', comissaoPercentual: 50, modalidadeIds: [] }
 
@@ -25,6 +26,8 @@ export function ProfessoresPage() {
     const termo = busca.toLowerCase()
     return nome.includes(termo) || email.includes(termo)
   })
+  const { page, pageSize, setPage, setPageSize } = usePagination(linhas.length)
+  const linhasPagina = linhas.slice((page - 1) * pageSize, page * pageSize)
 
   function abrirCadastro() {
     setEditingId(null)
@@ -174,7 +177,7 @@ export function ProfessoresPage() {
           </tr>
         </thead>
         <tbody>
-          {linhas.map((professor) => (
+          {linhasPagina.map((professor) => (
             <tr key={professor.id}>
               <td>{nomeDoProfile(professor.profileId)}</td>
               <td>{emailDoProfile(professor.profileId)}</td>
@@ -209,6 +212,7 @@ export function ProfessoresPage() {
           ))}
         </tbody>
       </table>
+      <Pagination page={page} pageSize={pageSize} total={linhas.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
     </div>
   )
 }
