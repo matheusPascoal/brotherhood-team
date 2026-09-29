@@ -9,16 +9,12 @@ function hoje(): string {
 
 export function PresencasPage() {
   const { currentAccount, profiles, alunos, alunoModalidades, turmas, presencas, salvarChamada } = useAppData()
-  const minhasTurmasIniciais = turmas.filter((t) => t.professorId === currentAccount?.id)
-  const [turmaId, setTurmaId] = useState(minhasTurmasIniciais[0]?.id ?? '')
+  const minhasTurmas = turmas.filter((t) => t.professorId === currentAccount?.id)
+  const [turmaId, setTurmaId] = useState(minhasTurmas[0]?.id ?? '')
   const [dataAula, setDataAula] = useState(hoje())
   const [observacaoAula, setObservacaoAula] = useState('')
   const [presentesPorAluno, setPresentesPorAluno] = useState<Record<string, boolean>>({})
 
-  if (!currentAccount) return null
-  const minhasTurmas = turmas.filter((t) => t.professorId === currentAccount.id)
-
-  const nomeDoProfile = (profileId?: string) => profiles.find((p) => p.id === profileId)?.fullName ?? '—'
   const turmaSelecionada = minhasTurmas.find((t) => t.id === turmaId)
   const alunosDaTurma = useMemo(
     () => (turmaSelecionada ? getAlunosDaTurma(turmaSelecionada, alunos, alunoModalidades) : []),
@@ -30,6 +26,10 @@ export function PresencasPage() {
       Array.from(new Set(presencas.filter((p) => p.turmaId === turmaId).map((p) => p.dataAula))).sort().reverse(),
     [presencas, turmaId]
   )
+
+  if (!currentAccount) return null
+
+  const nomeDoProfile = (profileId?: string) => profiles.find((p) => p.id === profileId)?.fullName ?? '—'
 
   function carregarChamadaExistente(data: string) {
     setDataAula(data)

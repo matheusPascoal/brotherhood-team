@@ -35,19 +35,21 @@ export function PagamentosTurmasPage() {
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
   const [metodoSelecionado, setMetodoSelecionado] = useState<MetodoPagamento>('pix')
 
+  const mesesDisponiveis = useMemo(() => {
+    const minhasMatriculasIds = new Set(
+      alunoModalidades.filter((am) => am.professorId === currentAccount?.id).map((am) => am.id)
+    )
+    const meses = new Set(pagamentos.filter((p) => minhasMatriculasIds.has(p.alunoModalidadeId)).map((p) => p.mesReferencia))
+    meses.add(MES_ATUAL)
+    return Array.from(meses).sort().reverse()
+  }, [alunoModalidades, pagamentos, currentAccount])
+
   if (!currentAccount) return null
   const professorId = currentAccount.id
 
   const nomeDoProfile = (profileId?: string) => profiles.find((p) => p.id === profileId)?.fullName ?? '—'
   const nomeModalidade = (id: string) => modalidades.find((m) => m.id === id)?.nome ?? '—'
   const minhasTurmas = turmas.filter((t) => t.professorId === professorId)
-
-  const mesesDisponiveis = useMemo(() => {
-    const minhasMatriculasIds = new Set(alunoModalidades.filter((am) => am.professorId === professorId).map((am) => am.id))
-    const meses = new Set(pagamentos.filter((p) => minhasMatriculasIds.has(p.alunoModalidadeId)).map((p) => p.mesReferencia))
-    meses.add(MES_ATUAL)
-    return Array.from(meses).sort().reverse()
-  }, [alunoModalidades, pagamentos, professorId])
 
   async function marcarComoPago(alunoModalidadeId: string) {
     const result = await definirPagamento(alunoModalidadeId, mesReferencia, true, professorId, metodoSelecionado)
