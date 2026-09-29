@@ -728,14 +728,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (!result.id) return { success: false, error: result.error ?? 'Não foi possível criar o aluno.' }
       const profileId = result.id
 
-      const { data: alunoRow, error: alunoError } = await supabase
-        .from('alunos')
-        .insert({ profile_id: profileId, cpf: input.cpf })
-        .select()
-        .single()
-      if (alunoError) return { success: false, error: alunoError.message }
+      // Sem .select() de propósito: o professor só passa a enxergar este
+      // aluno (policy alunos_select_professor) depois que a matrícula for
+      // criada logo abaixo — um INSERT ... RETURNING seria barrado pelo
+      // Postgres (RLS exige que a linha devolvida passe pela policy de
+      // SELECT mesmo já tendo passado no WITH CHECK do INSERT). Por isso o
+      // id é gerado no cliente, não devolvido pelo banco.
+      const alunoId = crypto.randomUUID()
+      const { error: alunoError } = await supabase.from('alunos').insert({ id: alunoId, profile_id: profileId, cpf: input.cpf })
+      if (alunoError) return { success: false, error: translateDbError(alunoError.message) }
 
-      const modalidadeResult = await inserirModalidadesDoAluno(alunoRow.id, input.modalidades)
+      const modalidadeResult = await inserirModalidadesDoAluno(alunoId, input.modalidades)
       if (!modalidadeResult.success) return modalidadeResult
 
       await Promise.all([
