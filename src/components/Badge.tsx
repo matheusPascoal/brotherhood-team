@@ -19,8 +19,13 @@ export function Badge({ tone, children, dot = true }: BadgeProps) {
 
 const BELT_CLASS: Record<string, string> = {
   branca: 'belt-pill--branca',
+  cinza: 'belt-pill--cinza',
   azul: 'belt-pill--azul',
+  amarela: 'belt-pill--amarela',
+  laranja: 'belt-pill--laranja',
+  verde: 'belt-pill--verde',
   roxa: 'belt-pill--roxa',
+  vermelha: 'belt-pill--vermelha',
   marrom: 'belt-pill--marrom',
   preta: 'belt-pill--preta',
 }

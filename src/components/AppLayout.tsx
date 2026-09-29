@@ -142,7 +142,7 @@ export function AppLayout({ tabs, activeTab, onTabChange, children }: AppLayoutP
         <div className="app-footer__status">
           <Badge tone="success">Servidor Ativo</Badge>
         </div>
-        <span>Brotherhood Team · v0.1 (mock)</span>
+        <span>Brotherhood Team · v1.0.0</span>
       </footer>
     </div>
   )

@@ -449,13 +449,38 @@ button:not([class*='btn']):not(.tab):hover {
   color: #0b0e17;
 }
 
+.belt-pill--cinza {
+  background: #6b7280;
+  color: #fff;
+}
+
 .belt-pill--azul {
   background: var(--color-primary);
   color: #fff;
 }
 
+.belt-pill--amarela {
+  background: #eab308;
+  color: #1a1206;
+}
+
+.belt-pill--laranja {
+  background: #ea580c;
+  color: #fff;
+}
+
+.belt-pill--verde {
+  background: #16a34a;
+  color: #fff;
+}
+
 .belt-pill--roxa {
   background: #7c3aed;
+  color: #fff;
+}
+
+.belt-pill--vermelha {
+  background: #dc2626;
   color: #fff;
 }
 
@@ -465,9 +490,9 @@ button:not([class*='btn']):not(.tab):hover {
 }
 
 .belt-pill--preta {
-  background: #0b0e17;
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-text-primary);
+  background: #1c1f2b;
+  color: #fff;
+  border: 2px solid var(--color-text-primary);
 }
 
 .belt-pill--outra {
@@ -1064,6 +1089,18 @@ textarea:focus {
 
 .modal-panel > h2 {
   margin-bottom: var(--space-4);
+}
+
+.modal-panel--wide {
+  width: 720px;
+  max-height: calc(100vh - var(--space-3) * 2);
+  overflow-y: auto;
+}
+
+@media (min-width: 480px) {
+  .modal-panel--wide {
+    max-height: calc(100vh - var(--space-5) * 2);
+  }
 }
 
 /* ============ Forms ============ */
