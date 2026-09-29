@@ -6,12 +6,22 @@ import { Pagination, usePagination } from '../../components/Pagination'
 const EMPTY_FORM: NovoProfessorInput = { fullName: '', email: '', senha: '', phone: '', comissaoPercentual: 50, modalidadeIds: [] }
 
 export function ProfessoresPage() {
-  const { profiles, professores, modalidades, alunoModalidades, createProfessor, updateProfessor, setProfessorStatus, deleteProfessor } =
-    useAppData()
+  const {
+    profiles,
+    professores,
+    modalidades,
+    alunoModalidades,
+    createProfessor,
+    updateProfessor,
+    setProfessorStatus,
+    deleteProfessor,
+    setUserPassword,
+  } = useAppData()
   const [busca, setBusca] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<NovoProfessorInput>(EMPTY_FORM)
+  const [novaSenha, setNovaSenha] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
 
@@ -32,6 +42,7 @@ export function ProfessoresPage() {
   function abrirCadastro() {
     setEditingId(null)
     setForm(EMPTY_FORM)
+    setNovaSenha('')
     setErro(null)
     setFormOpen(true)
   }
@@ -48,6 +59,7 @@ export function ProfessoresPage() {
       comissaoPercentual: professor.comissaoPercentual,
       modalidadeIds: professor.modalidadeIds,
     })
+    setNovaSenha('')
     setErro(null)
     setFormOpen(true)
   }
@@ -58,13 +70,29 @@ export function ProfessoresPage() {
       setErro('A senha precisa ter pelo menos 6 caracteres.')
       return
     }
+    if (editingId && novaSenha && novaSenha.length < 6) {
+      setErro('A nova senha precisa ter pelo menos 6 caracteres.')
+      return
+    }
     setSalvando(true)
     const result = editingId ? await updateProfessor(editingId, form) : await createProfessor(form)
-    setSalvando(false)
     if (!result.success) {
+      setSalvando(false)
       setErro(result.error ?? 'Não foi possível salvar o professor.')
       return
     }
+    if (editingId && novaSenha) {
+      const professor = professores.find((p) => p.id === editingId)
+      const senhaResult = professor
+        ? await setUserPassword(professor.profileId, novaSenha)
+        : { success: false, error: 'Professor não encontrado.' }
+      if (!senhaResult.success) {
+        setSalvando(false)
+        setErro(senhaResult.error ?? 'Não foi possível redefinir a senha.')
+        return
+      }
+    }
+    setSalvando(false)
     setFormOpen(false)
   }
 
@@ -119,6 +147,17 @@ export function ProfessoresPage() {
                   type="password"
                   value={form.senha}
                   onChange={(e) => setForm({ ...form, senha: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </label>
+            )}
+            {editingId && (
+              <label>
+                Nova senha (deixe em branco pra manter a atual)
+                <input
+                  type="password"
+                  value={novaSenha}
+                  onChange={(e) => setNovaSenha(e.target.value)}
                   placeholder="Mínimo 6 caracteres"
                 />
               </label>

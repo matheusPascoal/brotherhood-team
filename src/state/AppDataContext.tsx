@@ -114,6 +114,9 @@ interface AppDataContextValue extends AppDataState {
   login: (email: string, password: string) => Promise<ActionResult>
   logout: () => Promise<void>
   changePassword: (novaSenha: string) => Promise<ActionResult>
+  // Só o admin consegue de fato (a Edge Function revalida); profileId é o
+  // id em profiles/auth.users da conta cuja senha vai ser redefinida.
+  setUserPassword: (profileId: string, novaSenha: string) => Promise<ActionResult>
   refetchData: () => Promise<void>
   confirmarPagamento: (pagamentoId: string, confirmadoPorId: string, metodo: MetodoPagamento) => Promise<ActionResult>
   definirPagamento: (
@@ -449,6 +452,30 @@ async function invokeAdminCreateUser(input: AdminCreateUserInput): Promise<{ id?
   return { id: data?.id }
 }
 
+// Chama a Edge Function admin-set-password (mesma razão da acima: só
+// service_role consegue trocar a senha de outra conta). A function
+// revalida no servidor que quem chamou é admin — a checagem de role aqui no
+// cliente é só pra não mostrar o campo à toa, não é a autorização de verdade.
+async function invokeAdminSetPassword(userId: string, newPassword: string): Promise<ActionResult> {
+  const { data, error } = await supabase.functions.invoke<{ success?: boolean; error?: string }>('admin-set-password', {
+    body: { userId, newPassword },
+  })
+  if (error) {
+    const context = (error as { context?: Response }).context
+    if (context) {
+      try {
+        const body = await context.json()
+        if (body?.error) return { success: false, error: body.error }
+      } catch {
+        // resposta sem corpo JSON — cai para a mensagem genérica abaixo
+      }
+    }
+    return { success: false, error: error.message }
+  }
+  if (data?.error) return { success: false, error: data.error }
+  return { success: true }
+}
+
 // Insere uma ou mais matrículas (aluno_modalidades) para um aluno e, para
 // cada uma, as turmas escolhidas (aluno_turmas). Usado tanto na criação do
 // aluno quanto ao adicionar novas modalidades numa edição.
@@ -578,6 +605,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.updateUser({ password: novaSenha })
       if (error) return { success: false, error: translateAuthError(error.message) }
       return { success: true }
+    },
+
+    setUserPassword: async (profileId, novaSenha) => {
+      if (novaSenha.length < 6) return { success: false, error: 'A senha precisa ter pelo menos 6 caracteres.' }
+      return invokeAdminSetPassword(profileId, novaSenha)
     },
 
     refetchData,

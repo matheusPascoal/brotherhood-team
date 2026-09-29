@@ -29,14 +29,27 @@ const EMPTY_FORM: NovoAlunoInput = {
 }
 
 export function AlunosPage() {
-  const { profiles, professores, alunos, alunoModalidades, modalidades, turmas, pagamentos, createAluno, updateAluno, setAlunoStatus, deleteAluno } =
-    useAppData()
+  const {
+    profiles,
+    professores,
+    alunos,
+    alunoModalidades,
+    modalidades,
+    turmas,
+    pagamentos,
+    createAluno,
+    updateAluno,
+    setAlunoStatus,
+    deleteAluno,
+    setUserPassword,
+  } = useAppData()
   const [busca, setBusca] = useState('')
   const [filtroProfessor, setFiltroProfessor] = useState('')
   const [filtroStatusFinanceiro, setFiltroStatusFinanceiro] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<NovoAlunoInput>(EMPTY_FORM)
+  const [novaSenha, setNovaSenha] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
 
@@ -63,6 +76,7 @@ export function AlunosPage() {
   function abrirCadastro() {
     setEditingId(null)
     setForm(EMPTY_FORM)
+    setNovaSenha('')
     setErro(null)
     setFormOpen(true)
   }
@@ -89,6 +103,7 @@ export function AlunosPage() {
           turmaIds: am.turmaIds,
         })),
     })
+    setNovaSenha('')
     setErro(null)
     setFormOpen(true)
   }
@@ -107,14 +122,31 @@ export function AlunosPage() {
       setErro('A senha precisa ter pelo menos 6 caracteres.')
       return
     }
+    if (editingId && novaSenha && novaSenha.length < 6) {
+      setErro('A nova senha precisa ter pelo menos 6 caracteres.')
+      return
+    }
     setErro(null)
     setSalvando(true)
     const result = editingId ? await updateAluno(editingId, form) : await createAluno(form)
-    setSalvando(false)
     if (!result.success) {
+      setSalvando(false)
       setErro(result.error ?? 'Não foi possível salvar o aluno.')
       return
     }
+    if (editingId && novaSenha) {
+      const aluno = alunos.find((a) => a.id === editingId)
+      const senhaResult =
+        aluno && aluno.profileId
+          ? await setUserPassword(aluno.profileId, novaSenha)
+          : { success: false, error: 'Este aluno não tem login próprio (sem conta vinculada).' }
+      if (!senhaResult.success) {
+        setSalvando(false)
+        setErro(senhaResult.error ?? 'Não foi possível redefinir a senha.')
+        return
+      }
+    }
+    setSalvando(false)
     setFormOpen(false)
   }
 
@@ -182,6 +214,17 @@ export function AlunosPage() {
                   type="password"
                   value={form.senha}
                   onChange={(e) => setForm({ ...form, senha: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </label>
+            )}
+            {editingId && (
+              <label>
+                Nova senha (deixe em branco pra manter a atual)
+                <input
+                  type="password"
+                  value={novaSenha}
+                  onChange={(e) => setNovaSenha(e.target.value)}
                   placeholder="Mínimo 6 caracteres"
                 />
               </label>
