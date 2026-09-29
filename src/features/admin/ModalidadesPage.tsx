@@ -83,7 +83,8 @@ export function ModalidadesPage() {
       </div>
 
       {formOpen && (
-        <section className="form-panel">
+        <div className="modal-overlay" onClick={() => setFormOpen(false)}>
+        <section className="modal-panel modal-panel--wide" onClick={(e) => e.stopPropagation()}>
           <h2>{editingId ? 'Editar modalidade' : 'Nova modalidade'}</h2>
           <div className="form-grid">
             <label>
@@ -109,6 +110,7 @@ export function ModalidadesPage() {
             </button>
           </div>
         </section>
+        </div>
       )}
 
       <table className="table">

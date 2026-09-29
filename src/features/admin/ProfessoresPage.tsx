@@ -97,7 +97,8 @@ export function ProfessoresPage() {
       </div>
 
       {formOpen && (
-        <section className="form-panel">
+        <div className="modal-overlay" onClick={() => setFormOpen(false)}>
+        <section className="modal-panel modal-panel--wide" onClick={(e) => e.stopPropagation()}>
           <h2>{editingId ? 'Editar professor' : 'Novo professor'}</h2>
           <div className="form-grid">
             <label>
@@ -157,6 +158,7 @@ export function ProfessoresPage() {
             </button>
           </div>
         </section>
+        </div>
       )}
 
       <table className="table">

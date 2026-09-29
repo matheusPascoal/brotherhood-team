@@ -177,7 +177,8 @@ export function EstoquePage() {
       </div>
 
       {formOpen && (
-        <section className="form-panel">
+        <div className="modal-overlay" onClick={() => setFormOpen(false)}>
+        <section className="modal-panel modal-panel--wide" onClick={(e) => e.stopPropagation()}>
           <h2>{editingId ? 'Editar material' : 'Novo material'}</h2>
           <div className="form-grid">
             <label>
@@ -226,6 +227,7 @@ export function EstoquePage() {
             </button>
           </div>
         </section>
+        </div>
       )}
 
       {movimentoMaterialId && (
