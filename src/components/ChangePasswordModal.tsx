@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useAppData } from '../state/AppDataContext'
+import { SENHA_REGRA_DESCRICAO, validarSenha } from '../domain/validation'
 
 interface Props {
   onClose: () => void
@@ -15,8 +16,9 @@ export function ChangePasswordModal({ onClose }: Props) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (novaSenha.length < 6) {
-      setErro('A senha precisa ter pelo menos 6 caracteres.')
+    const erroSenha = validarSenha(novaSenha)
+    if (erroSenha) {
+      setErro(erroSenha)
       return
     }
     if (novaSenha !== confirmacao) {
@@ -56,7 +58,8 @@ export function ChangePasswordModal({ onClose }: Props) {
                   type="password"
                   value={novaSenha}
                   onChange={(e) => setNovaSenha(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={SENHA_REGRA_DESCRICAO}
+                  maxLength={8}
                   autoFocus
                   disabled={salvando}
                 />

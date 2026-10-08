@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Tables, TablesUpdate } from '../lib/database.types'
+import { validarSenha } from '../domain/validation'
 import type {
   Aluno,
   AlunoModalidade,
@@ -601,14 +602,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     },
 
     changePassword: async (novaSenha) => {
-      if (novaSenha.length < 6) return { success: false, error: 'A senha precisa ter pelo menos 6 caracteres.' }
+      const erroSenha = validarSenha(novaSenha)
+      if (erroSenha) return { success: false, error: erroSenha }
       const { error } = await supabase.auth.updateUser({ password: novaSenha })
       if (error) return { success: false, error: translateAuthError(error.message) }
       return { success: true }
     },
 
     setUserPassword: async (profileId, novaSenha) => {
-      if (novaSenha.length < 6) return { success: false, error: 'A senha precisa ter pelo menos 6 caracteres.' }
+      const erroSenha = validarSenha(novaSenha)
+      if (erroSenha) return { success: false, error: erroSenha }
       return invokeAdminSetPassword(profileId, novaSenha)
     },
 

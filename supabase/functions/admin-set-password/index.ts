@@ -16,6 +16,16 @@ function jsonResponse(body: unknown, status: number): Response {
   })
 }
 
+// Mesma regra de src/domain/validation.ts — duplicada aqui de propósito: esta
+// é a validação que realmente vale (a do cliente só evita uma ida ao
+// servidor), então não pode depender de um import do frontend.
+function validarSenha(senha: string): string | null {
+  if (senha.length < 6 || senha.length > 8) return 'A senha precisa ter entre 6 e 8 caracteres.'
+  if (!/[A-Z]/.test(senha)) return 'A senha precisa ter pelo menos 1 letra maiúscula.'
+  if (!/[^A-Za-z0-9]/.test(senha)) return 'A senha precisa ter pelo menos 1 caractere especial.'
+  return null
+}
+
 interface RequestBody {
   userId: string
   newPassword: string
@@ -61,8 +71,9 @@ Deno.serve(async (req) => {
 
   const { userId, newPassword } = body
   if (!userId) return jsonResponse({ error: 'userId é obrigatório.' }, 400)
-  if (!newPassword || newPassword.length < 6) {
-    return jsonResponse({ error: 'A senha precisa ter pelo menos 6 caracteres.' }, 400)
+  const erroSenha = newPassword ? validarSenha(newPassword) : 'A senha é obrigatória.'
+  if (erroSenha) {
+    return jsonResponse({ error: erroSenha }, 400)
   }
 
   const { error: updateError } = await adminClient.auth.admin.updateUserById(userId, { password: newPassword })

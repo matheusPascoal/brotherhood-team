@@ -7,6 +7,7 @@ import { Badge, BeltPill } from '../../components/Badge'
 import type { BadgeTone } from '../../components/Badge'
 import { AlunoModalidadesForm } from '../shared/AlunoModalidadesForm'
 import { Pagination, usePagination } from '../../components/Pagination'
+import { SENHA_REGRA_DESCRICAO, validarSenha } from '../../domain/validation'
 
 const STATUS_FINANCEIRO_TONE: Record<string, BadgeTone> = {
   adimplente: 'success',
@@ -118,13 +119,19 @@ export function AlunosPage() {
       setErro('Preencha professor, modalidade e um dia de vencimento válido (1–31) em cada modalidade.')
       return
     }
-    if (!editingId && form.senha.length < 6) {
-      setErro('A senha precisa ter pelo menos 6 caracteres.')
-      return
+    if (!editingId) {
+      const erroSenha = validarSenha(form.senha)
+      if (erroSenha) {
+        setErro(erroSenha)
+        return
+      }
     }
-    if (editingId && novaSenha && novaSenha.length < 6) {
-      setErro('A nova senha precisa ter pelo menos 6 caracteres.')
-      return
+    if (editingId && novaSenha) {
+      const erroSenha = validarSenha(novaSenha)
+      if (erroSenha) {
+        setErro(erroSenha)
+        return
+      }
     }
     setErro(null)
     setSalvando(true)
@@ -214,7 +221,8 @@ export function AlunosPage() {
                   type="password"
                   value={form.senha}
                   onChange={(e) => setForm({ ...form, senha: e.target.value })}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={SENHA_REGRA_DESCRICAO}
+                  maxLength={8}
                 />
               </label>
             )}
@@ -225,7 +233,8 @@ export function AlunosPage() {
                   type="password"
                   value={novaSenha}
                   onChange={(e) => setNovaSenha(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={SENHA_REGRA_DESCRICAO}
+                  maxLength={8}
                 />
               </label>
             )}

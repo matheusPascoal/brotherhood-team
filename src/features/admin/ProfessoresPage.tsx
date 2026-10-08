@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAppData, type NovoProfessorInput } from '../../state/AppDataContext'
 import { Badge } from '../../components/Badge'
 import { Pagination, usePagination } from '../../components/Pagination'
+import { SENHA_REGRA_DESCRICAO, validarSenha } from '../../domain/validation'
 
 const EMPTY_FORM: NovoProfessorInput = { fullName: '', email: '', senha: '', phone: '', comissaoPercentual: 50, modalidadeIds: [] }
 
@@ -66,13 +67,19 @@ export function ProfessoresPage() {
 
   async function salvar() {
     if (!form.fullName || !form.email) return
-    if (!editingId && form.senha.length < 6) {
-      setErro('A senha precisa ter pelo menos 6 caracteres.')
-      return
+    if (!editingId) {
+      const erroSenha = validarSenha(form.senha)
+      if (erroSenha) {
+        setErro(erroSenha)
+        return
+      }
     }
-    if (editingId && novaSenha && novaSenha.length < 6) {
-      setErro('A nova senha precisa ter pelo menos 6 caracteres.')
-      return
+    if (editingId && novaSenha) {
+      const erroSenha = validarSenha(novaSenha)
+      if (erroSenha) {
+        setErro(erroSenha)
+        return
+      }
     }
     setSalvando(true)
     const result = editingId ? await updateProfessor(editingId, form) : await createProfessor(form)
@@ -147,7 +154,8 @@ export function ProfessoresPage() {
                   type="password"
                   value={form.senha}
                   onChange={(e) => setForm({ ...form, senha: e.target.value })}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={SENHA_REGRA_DESCRICAO}
+                  maxLength={8}
                 />
               </label>
             )}
@@ -158,7 +166,8 @@ export function ProfessoresPage() {
                   type="password"
                   value={novaSenha}
                   onChange={(e) => setNovaSenha(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={SENHA_REGRA_DESCRICAO}
+                  maxLength={8}
                 />
               </label>
             )}

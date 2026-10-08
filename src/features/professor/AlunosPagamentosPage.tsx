@@ -7,6 +7,7 @@ import type { MetodoPagamento } from '../../domain/types'
 import { Badge, BeltPill } from '../../components/Badge'
 import type { BadgeTone } from '../../components/Badge'
 import { AlunoModalidadesForm } from '../shared/AlunoModalidadesForm'
+import { SENHA_REGRA_DESCRICAO, validarSenha } from '../../domain/validation'
 
 const STATUS_FINANCEIRO_TONE: Record<string, BadgeTone> = {
   adimplente: 'success',
@@ -112,9 +113,12 @@ export function AlunosPagamentosPage() {
       setErro('Selecione a modalidade e um dia de vencimento válido (1–31) em cada bloco.')
       return
     }
-    if (!editingId && form.senha.length < 6) {
-      setErro('A senha precisa ter pelo menos 6 caracteres.')
-      return
+    if (!editingId) {
+      const erroSenha = validarSenha(form.senha)
+      if (erroSenha) {
+        setErro(erroSenha)
+        return
+      }
     }
     setErro(null)
     setSalvando(true)
@@ -165,7 +169,8 @@ export function AlunosPagamentosPage() {
                   type="password"
                   value={form.senha}
                   onChange={(e) => setForm({ ...form, senha: e.target.value })}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={SENHA_REGRA_DESCRICAO}
+                  maxLength={8}
                 />
               </label>
             )}
