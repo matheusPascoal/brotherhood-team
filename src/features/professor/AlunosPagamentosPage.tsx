@@ -146,7 +146,8 @@ export function AlunosPagamentosPage() {
       </div>
 
       {formOpen && (
-        <section className="form-panel">
+        <div className="modal-overlay" onClick={() => setFormOpen(false)}>
+        <section className="modal-panel modal-panel--wide" onClick={(e) => e.stopPropagation()}>
           <h2>{editingId ? 'Editar aluno' : 'Novo aluno'}</h2>
           <div className="form-grid">
             <label>
@@ -198,6 +199,7 @@ export function AlunosPagamentosPage() {
             </button>
           </div>
         </section>
+        </div>
       )}
 
       <table className="table">

@@ -95,7 +95,8 @@ export function HorariosPage() {
       </div>
 
       {formOpen && (
-        <section className="form-panel">
+        <div className="modal-overlay" onClick={() => setFormOpen(false)}>
+        <section className="modal-panel modal-panel--wide" onClick={(e) => e.stopPropagation()}>
           <h2>{editingId ? 'Editar turma' : 'Nova turma'}</h2>
           <div className="form-grid">
             <label>
@@ -154,6 +155,7 @@ export function HorariosPage() {
             </button>
           </div>
         </section>
+        </div>
       )}
 
       <table className="table">
