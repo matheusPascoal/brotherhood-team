@@ -69,6 +69,20 @@ export function PresencasPage() {
           ))}
         </select>
         <input type="date" value={dataAula} onChange={(e) => carregarChamadaExistente(e.target.value)} />
+        <select
+          value={chamadasAnteriores.includes(dataAula) ? dataAula : ''}
+          onChange={(e) => e.target.value && carregarChamadaExistente(e.target.value)}
+          disabled={chamadasAnteriores.length === 0}
+        >
+          <option value="" disabled>
+            {chamadasAnteriores.length === 0 ? 'Nenhuma aula salva ainda' : 'Aulas salvas…'}
+          </option>
+          {chamadasAnteriores.map((data) => (
+            <option key={data} value={data}>
+              {formatDataLocal(data)}
+            </option>
+          ))}
+        </select>
       </div>
 
       {turmaSelecionada && (
@@ -106,23 +120,6 @@ export function PresencasPage() {
               Salvar Chamada do Treino
             </button>
           </div>
-
-          <section className="panel">
-            <h2>Aulas anteriores desta turma</h2>
-            {chamadasAnteriores.length === 0 ? (
-              <p className="empty-state">Nenhuma chamada registrada ainda.</p>
-            ) : (
-              <ul className="feed">
-                {chamadasAnteriores.map((data) => (
-                  <li key={data}>
-                    <button type="button" onClick={() => carregarChamadaExistente(data)}>
-                      {formatDataLocal(data)}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
         </>
       )}
     </div>
