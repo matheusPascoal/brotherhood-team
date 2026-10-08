@@ -74,6 +74,52 @@ export function AlunosPage() {
   const { page, pageSize, setPage, setPageSize } = usePagination(linhas.length)
   const linhasPagina = linhas.slice((page - 1) * pageSize, page * pageSize)
 
+  // Exporta a lista filtrada (busca/professor/status), não só a página
+  // atual — uma linha por matrícula, pra dar pra analisar/filtrar no Excel.
+  async function exportarExcel() {
+    const XLSX = await import('xlsx')
+    type LinhaExcel = {
+      Nome: string
+      CPF: string
+      'E-mail': string
+      'Status do aluno': string
+      Modalidade: string
+      Professor: string
+      Faixa: string
+      Grau: number | string
+      Mensalidade: number | string
+      'Dia vencimento': number | string
+      'Status financeiro': string
+    }
+    const linhasExcel: LinhaExcel[] = linhas.flatMap((aluno): LinhaExcel[] => {
+      const matriculas = matriculasDoAluno(aluno.id).filter((am) => am.status === 'ativo')
+      const base = {
+        Nome: nomeDoProfile(aluno.profileId),
+        CPF: formatCpfFull(aluno.cpf),
+        'E-mail': emailDoProfile(aluno.profileId),
+        'Status do aluno': aluno.status === 'ativo' ? 'Ativo' : 'Inativo',
+      }
+      if (matriculas.length === 0) {
+        return [{ ...base, Modalidade: '—', Professor: '—', Faixa: '—', Grau: '—', Mensalidade: '—', 'Dia vencimento': '—', 'Status financeiro': '—' }]
+      }
+      return matriculas.map((am) => ({
+        ...base,
+        Modalidade: nomeModalidade(am.modalidadeId),
+        Professor: nomeDoProfile(am.professorId),
+        Faixa: am.faixaAtual,
+        Grau: am.grauAtual,
+        Mensalidade: am.mensalidadeValor,
+        'Dia vencimento': am.diaVencimento,
+        'Status financeiro': STATUS_FINANCEIRO_LABEL[getStatusFinanceiroMatricula(am.id, MES_ATUAL, pagamentos)],
+      }))
+    })
+
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.json_to_sheet(linhasExcel)
+    XLSX.utils.book_append_sheet(wb, ws, 'Alunos')
+    XLSX.writeFile(wb, `alunos-brotherhood-team-${MES_ATUAL}.xlsx`)
+  }
+
   function abrirCadastro() {
     setEditingId(null)
     setForm(EMPTY_FORM)
@@ -191,12 +237,7 @@ export function AlunosPage() {
         <button type="button" className="btn btn-primary" onClick={abrirCadastro}>
           + Novo Aluno
         </button>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          title="Exportação real será implementada na Fase 7"
-          onClick={() => alert('Exportação Excel entra na Fase 7 do plano.')}
-        >
+        <button type="button" className="btn btn-secondary" onClick={exportarExcel}>
           Exportar Excel
         </button>
       </div>
