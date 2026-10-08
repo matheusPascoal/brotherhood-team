@@ -5,8 +5,14 @@ import { currency, formatMesReferencia } from '../../domain/format'
 import { MES_ATUAL } from '../../mocks/mockData'
 import { Pagination, usePagination } from '../../components/Pagination'
 
+const STATUS_PAGAMENTO_LABEL: Record<string, string> = {
+  confirmado: 'Confirmado',
+  pendente: 'Pendente',
+  atrasado: 'Atrasado',
+}
+
 export function RelatoriosPage() {
-  const { profiles, professores, alunos, alunoModalidades, pagamentos } = useAppData()
+  const { profiles, professores, alunos, alunoModalidades, turmas, modalidades, pagamentos } = useAppData()
   const mesesDisponiveis = useMemo(
     () => Array.from(new Set(pagamentos.map((p) => p.mesReferencia))).sort().reverse(),
     [pagamentos]
@@ -17,8 +23,58 @@ export function RelatoriosPage() {
   const { page, pageSize, setPage, setPageSize } = usePagination(relatorio.porProfessor.length)
   const linhasPagina = relatorio.porProfessor.slice((page - 1) * pageSize, page * pageSize)
 
-  function exportar(formato: 'excel' | 'pdf') {
-    alert(`Exportação em ${formato.toUpperCase()} entra na Fase 7 do plano (hoje é só o botão, como no protótipo).`)
+  const nomeDoProfile = (profileId?: string) => profiles.find((p) => p.id === profileId)?.fullName ?? '—'
+
+  async function exportarExcel() {
+    // Import dinâmico: a lib inteira só entra no bundle quando alguém de
+    // fato clica em exportar, não no carregamento normal da tela.
+    const XLSX = await import('xlsx')
+    const pagamentosDoMes = pagamentos.filter((p) => p.mesReferencia === mesSelecionado)
+
+    const wb = XLSX.utils.book_new()
+
+    const wsResumo = XLSX.utils.aoa_to_sheet([
+      ['Relatório Mensal — Brotherhood Team'],
+      ['Mês de referência', formatMesReferencia(mesSelecionado)],
+      [],
+      ['Arrecadado', relatorio.arrecadado],
+      ['Pendente', relatorio.pendente],
+      ['Previsto total', relatorio.previstoTotal],
+      ['Taxa de arrecadação (%)', relatorio.taxaArrecadacao],
+    ])
+    XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo')
+
+    const wsProfessor = XLSX.utils.json_to_sheet(
+      relatorio.porProfessor.map((row) => ({
+        Professor: row.nome,
+        Arrecadado: row.arrecadado,
+        Pendente: row.pendente,
+        Previsto: row.previsto,
+      }))
+    )
+    XLSX.utils.book_append_sheet(wb, wsProfessor, 'Por Professor')
+
+    const wsPagamentos = XLSX.utils.json_to_sheet(
+      pagamentosDoMes.map((p) => {
+        const am = alunoModalidades.find((m) => m.id === p.alunoModalidadeId)
+        const aluno = am ? alunos.find((a) => a.id === am.alunoId) : undefined
+        const nomesTurmas = am ? turmas.filter((t) => am.turmaIds.includes(t.id)).map((t) => t.nome).join(', ') : ''
+        return {
+          Aluno: nomeDoProfile(aluno?.profileId),
+          Modalidade: am ? (modalidades.find((m) => m.id === am.modalidadeId)?.nome ?? '—') : '—',
+          Professor: am ? nomeDoProfile(am.professorId) : '—',
+          Turma: nomesTurmas || '—',
+          Valor: p.valor,
+          Status: STATUS_PAGAMENTO_LABEL[p.status] ?? p.status,
+          Método: p.metodo ?? '—',
+          'Confirmado por': p.confirmadoPor ? nomeDoProfile(p.confirmadoPor) : '—',
+          'Confirmado em': p.confirmadoEm ? new Date(p.confirmadoEm).toLocaleString('pt-BR') : '—',
+        }
+      })
+    )
+    XLSX.utils.book_append_sheet(wb, wsPagamentos, 'Pagamentos do Mês')
+
+    XLSX.writeFile(wb, `relatorio-brotherhood-team-${mesSelecionado}.xlsx`)
   }
 
   return (
@@ -33,11 +89,8 @@ export function RelatoriosPage() {
             </option>
           ))}
         </select>
-        <button type="button" className="btn btn-secondary" onClick={() => exportar('excel')}>
+        <button type="button" className="btn btn-secondary" onClick={exportarExcel}>
           Exportar Excel
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={() => exportar('pdf')}>
-          Exportar PDF
         </button>
       </div>
 
