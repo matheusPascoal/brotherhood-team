@@ -1110,6 +1110,19 @@ textarea:focus {
   max-width: 100%;
 }
 
+.modal-panel__divider {
+  border: none;
+  border-top: 1px solid var(--color-border-subtle);
+  margin: var(--space-4) 0;
+}
+
+.modal-panel__subtitle {
+  font-size: var(--text-small);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-3);
+}
+
 @media (min-width: 480px) {
   .modal-overlay {
     padding: var(--space-5);

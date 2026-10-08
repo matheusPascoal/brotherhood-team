@@ -51,6 +51,10 @@ export function EstoquePage() {
   const registradoPorId = currentAccount.id
   const nomeDoMaterial = (materialId: string) => materiais.find((m) => m.id === materialId)?.nome ?? '—'
   const historico = [...movimentosEstoque].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 15)
+  const historicoDoMaterial = movimentosEstoque
+    .filter((mov) => mov.materialId === movimentoMaterialId)
+    .sort((a, b) => b.data.localeCompare(a.data))
+    .slice(0, 8)
 
   function abrirCadastro() {
     setEditingId(null)
@@ -234,7 +238,8 @@ export function EstoquePage() {
       )}
 
       {movimentoMaterialId && (
-        <section className="form-panel">
+        <div className="modal-overlay" onClick={() => setMovimentoMaterialId(null)}>
+        <section className="modal-panel modal-panel--wide" onClick={(e) => e.stopPropagation()}>
           <h2>Movimentar estoque — {nomeDoMaterial(movimentoMaterialId)}</h2>
           <div className="form-grid">
             <label>
@@ -282,7 +287,39 @@ export function EstoquePage() {
               Cancelar
             </button>
           </div>
+
+          <div className="modal-panel__divider" />
+          <h3 className="modal-panel__subtitle">Movimentações recentes deste material</h3>
+          {historicoDoMaterial.length === 0 ? (
+            <p className="empty-state">Nenhuma movimentação registrada ainda.</p>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Tipo</th>
+                  <th>Quantidade</th>
+                  <th>Motivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historicoDoMaterial.map((mov) => (
+                  <tr key={mov.id}>
+                    <td>{formatDataLocal(mov.data)}</td>
+                    <td>
+                      <Badge tone={mov.tipo === 'entrada' ? 'success' : 'warning'}>
+                        {mov.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                      </Badge>
+                    </td>
+                    <td>{mov.quantidade}</td>
+                    <td>{mov.motivo || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </section>
+        </div>
       )}
 
       <table className="table">
