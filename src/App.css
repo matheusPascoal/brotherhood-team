@@ -1336,6 +1336,37 @@ textarea:focus {
   color: var(--color-text-secondary);
 }
 
+.password-field {
+  position: relative;
+  display: flex;
+}
+
+.password-field input {
+  width: 100%;
+  padding-right: 42px;
+}
+
+.btn-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.btn-password-toggle:hover:not(:disabled) {
+  color: var(--color-text-secondary);
+}
+
 .login-card__error {
   color: var(--color-danger);
   font-size: var(--text-small);
