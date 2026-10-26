@@ -93,7 +93,22 @@ export function EstoquePage() {
   async function remover(materialId: string) {
     if (!window.confirm('Remover este material? Essa ação não pode ser desfeita.')) return
     const result = await deleteMaterial(materialId)
-    if (!result.success) alert(result.error)
+    if (result.success) return
+
+    const temMovimentacao = movimentosEstoque.some((m) => m.materialId === materialId)
+    if (!temMovimentacao) {
+      alert(result.error)
+      return
+    }
+    if (
+      !window.confirm(
+        'Este material tem movimentações de estoque registradas. Quer remover mesmo assim? O material e todo o histórico de movimentações dele serão apagados do banco definitivamente.'
+      )
+    ) {
+      return
+    }
+    const forcarResult = await deleteMaterial(materialId, true)
+    if (!forcarResult.success) alert(forcarResult.error)
   }
 
   function abrirMovimentacao(materialId: string) {

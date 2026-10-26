@@ -154,7 +154,9 @@ interface AppDataContextValue extends AppDataState {
   createMaterial: (input: NovoMaterialInput) => Promise<ActionResult>
   updateMaterial: (materialId: string, updates: Partial<NovoMaterialInput>) => Promise<ActionResult>
   setMaterialStatus: (materialId: string, status: AccountStatus) => Promise<ActionResult>
-  deleteMaterial: (materialId: string) => Promise<ActionResult>
+  // forcar: também apaga as movimentações de estoque do material antes de
+  // remover — sem isso, a FK "on delete restrict" barra a remoção.
+  deleteMaterial: (materialId: string, forcar?: boolean) => Promise<ActionResult>
   registrarMovimentoEstoque: (input: NovoMovimentoEstoqueInput, registradoPorId: string) => Promise<ActionResult>
 }
 
@@ -1031,15 +1033,21 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       return { success: true }
     },
 
-    // Espelha movimentos_estoque.material_id "on delete restrict" (migration
-    // 0027): só remove se não houver movimentação registrada para o material.
-    deleteMaterial: async (materialId) => {
-      if (state.movimentosEstoque.some((m) => m.materialId === materialId)) {
+    // movimentos_estoque.material_id é "on delete restrict" (migration 0027):
+    // sem forcar, só remove se não houver movimentação registrada. Com
+    // forcar=true, apaga antes o histórico de movimentações desse material —
+    // a UI só manda isso depois de um segundo "tem certeza?" bem explícito.
+    deleteMaterial: async (materialId, forcar) => {
+      if (!forcar && state.movimentosEstoque.some((m) => m.materialId === materialId)) {
         return { success: false, error: 'Não é possível remover: há movimentações de estoque registradas para este material.' }
+      }
+      if (forcar) {
+        const { error: movError } = await supabase.from('movimentos_estoque').delete().eq('material_id', materialId)
+        if (movError) return { success: false, error: movError.message }
       }
       const { error } = await supabase.from('materiais').delete().eq('id', materialId)
       if (error) return { success: false, error: translateDbError(error.message) }
-      await refetchTable('materiais', fetchMateriais)
+      await Promise.all([refetchTable('materiais', fetchMateriais), refetchTable('movimentosEstoque', fetchMovimentos)])
       return { success: true }
     },
 
