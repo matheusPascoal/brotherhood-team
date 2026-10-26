@@ -194,7 +194,7 @@ export function AlunosPagamentosPage() {
             />
           )}
 
-          {erro && <p className="empty-state">{erro}</p>}
+          {erro && <p className="form-error">{erro}</p>}
           <div className="form-actions">
             <button type="button" className="btn btn-primary" onClick={salvar} disabled={salvando}>
               {salvando ? 'Salvando...' : 'Salvar'}

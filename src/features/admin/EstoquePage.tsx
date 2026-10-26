@@ -239,7 +239,7 @@ export function EstoquePage() {
               />
             </label>
           </div>
-          {erroMaterial && <p className="empty-state">{erroMaterial}</p>}
+          {erroMaterial && <p className="form-error">{erroMaterial}</p>}
           <div className="form-actions">
             <button type="button" className="btn btn-primary" onClick={salvarMaterial} disabled={salvandoMaterial}>
               {salvandoMaterial ? 'Salvando...' : 'Salvar'}
@@ -293,7 +293,7 @@ export function EstoquePage() {
               />
             </label>
           </div>
-          {erroMovimento && <p className="empty-state">{erroMovimento}</p>}
+          {erroMovimento && <p className="form-error">{erroMovimento}</p>}
           <div className="form-actions">
             <button type="button" className="btn btn-primary" onClick={salvarMovimento}>
               Registrar

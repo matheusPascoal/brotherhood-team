@@ -74,7 +74,7 @@ export function ChangePasswordModal({ onClose }: Props) {
                 />
               </label>
             </div>
-            {erro && <p className="empty-state">{erro}</p>}
+            {erro && <p className="form-error">{erro}</p>}
             <div className="form-actions">
               <button type="submit" className="btn btn-primary" disabled={salvando}>
                 {salvando ? 'Salvando...' : 'Salvar nova senha'}

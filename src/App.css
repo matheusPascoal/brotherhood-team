@@ -1033,6 +1033,20 @@ button:not([class*='btn']):not(.tab):hover {
   padding: var(--space-3) 0;
 }
 
+/* Erro de validação/salvamento em formulário — precisa saltar aos olhos,
+   diferente de .empty-state (que é só "não há dados"). Sem isso o usuário não
+   percebe por que o salvar não funcionou e acha que o sistema travou. */
+.form-error {
+  color: var(--color-danger);
+  font-size: var(--text-small);
+  font-weight: 600;
+  padding: var(--space-2) var(--space-3);
+  margin: var(--space-2) 0;
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent);
+  border-radius: var(--radius-md);
+}
+
 .text-warning {
   color: var(--color-danger);
 }
