@@ -3,8 +3,15 @@ import { useAppData } from '../../state/AppDataContext'
 import { getAlunosDaTurma } from '../../domain/selectors'
 import { formatDataLocal } from '../../domain/format'
 
+// new Date().toISOString() converte pra UTC — no horário de Brasília (UTC-3),
+// a partir das 21h isso já devolve o dia seguinte, o que fazia a chamada de
+// uma aula noturna ser salva com a data errada (parecia "sumir" ao conferir
+// no dia certo depois). Usa os componentes de data locais em vez do ISO.
 function hoje(): string {
-  return new Date().toISOString().slice(0, 10)
+  const d = new Date()
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mes}-${dia}`
 }
 
 export function PresencasPage() {
