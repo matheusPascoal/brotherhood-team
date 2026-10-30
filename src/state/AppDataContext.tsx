@@ -924,7 +924,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     },
 
     createModalidade: async (input) => {
-      const { error } = await supabase.from('modalidades').insert({ nome: input.nome, faixas_ordem: input.faixasOrdem })
+      // Sem o trim, "Boxing" e "Boxing " (com espaço) passam pela constraint
+      // unique como nomes diferentes e viram duas modalidades indistinguíveis
+      // na tela — já aconteceu e deixou turma presa na modalidade errada.
+      const { error } = await supabase.from('modalidades').insert({ nome: input.nome.trim(), faixas_ordem: input.faixasOrdem })
       if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('modalidades', fetchModalidades)
       return { success: true }
@@ -932,7 +935,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     updateModalidade: async (modalidadeId, updates) => {
       const payload: TablesUpdate<'modalidades'> = {}
-      if (updates.nome !== undefined) payload.nome = updates.nome
+      if (updates.nome !== undefined) payload.nome = updates.nome.trim()
       if (updates.faixasOrdem !== undefined) payload.faixas_ordem = updates.faixasOrdem
       const { error } = await supabase.from('modalidades').update(payload).eq('id', modalidadeId)
       if (error) return { success: false, error: translateDbError(error.message) }

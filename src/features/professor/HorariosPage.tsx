@@ -18,7 +18,7 @@ function emptyForm(professorId: string): NovaTurmaInput {
 }
 
 export function HorariosPage() {
-  const { currentAccount, turmas, modalidades, createTurma, updateTurma, deleteTurma } = useAppData()
+  const { currentAccount, professores, turmas, modalidades, createTurma, updateTurma, deleteTurma } = useAppData()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<NovaTurmaInput>(emptyForm(currentAccount?.id ?? ''))
@@ -30,6 +30,12 @@ export function HorariosPage() {
 
   const minhasTurmas = turmas.filter((t) => t.professorId === professorId)
   const nomeModalidade = (id: string) => modalidades.find((m) => m.id === id)?.nome ?? '—'
+  // Só modalidades que o professor realmente leciona — sem isso dava pra criar
+  // turma presa numa modalidade qualquer do sistema, que depois nunca aparecia
+  // pra matricular aluno nenhum (o cadastro de aluno só lista as modalidades
+  // do próprio professor).
+  const meuProfessor = professores.find((p) => p.profileId === professorId)
+  const minhasModalidades = modalidades.filter((m) => meuProfessor?.modalidadeIds.includes(m.id))
 
   function abrirCadastro() {
     setEditingId(null)
@@ -107,7 +113,7 @@ export function HorariosPage() {
               Modalidade
               <select value={form.modalidadeId} onChange={(e) => setForm({ ...form, modalidadeId: e.target.value })}>
                 <option value="">Selecione…</option>
-                {modalidades.map((m) => (
+                {minhasModalidades.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.nome}
                   </option>
