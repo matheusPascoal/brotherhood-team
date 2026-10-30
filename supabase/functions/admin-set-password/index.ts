@@ -78,7 +78,10 @@ Deno.serve(async (req) => {
 
   const { error: updateError } = await adminClient.auth.admin.updateUserById(userId, { password: newPassword })
   if (updateError) {
-    return jsonResponse({ error: updateError.message }, 500)
+    const message = updateError.message.toLowerCase().includes('should be different from the old password')
+      ? 'A nova senha precisa ser diferente da atual.'
+      : 'Não foi possível redefinir a senha. Tente novamente em instantes.'
+    return jsonResponse({ error: message }, 500)
   }
 
   return jsonResponse({ success: true }, 200)

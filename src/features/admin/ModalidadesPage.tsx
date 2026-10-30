@@ -48,8 +48,12 @@ export function ModalidadesPage() {
   }
 
   async function salvar() {
-    if (!form.nome) return
+    if (!form.nome) {
+      setErro('Informe o nome da modalidade.')
+      return
+    }
     const payload: NovoModalidadeInput = { nome: form.nome, faixasOrdem: parseFaixas(faixasTexto) }
+    setErro(null)
     setSalvando(true)
     const result = editingId ? await updateModalidade(editingId, payload) : await createModalidade(payload)
     setSalvando(false)
@@ -63,7 +67,7 @@ export function ModalidadesPage() {
   async function remover(modalidadeId: string) {
     if (!window.confirm('Remover esta modalidade? Essa ação não pode ser desfeita.')) return
     const result = await deleteModalidade(modalidadeId)
-    if (!result.success) alert(result.error)
+    if (!result.success) alert(result.error ?? 'Não foi possível remover a modalidade.')
   }
 
   return (

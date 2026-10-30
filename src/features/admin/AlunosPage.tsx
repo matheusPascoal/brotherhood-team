@@ -156,7 +156,14 @@ export function AlunosPage() {
   }
 
   async function salvar() {
-    if (!form.fullName || !form.email || !/^\d{11}$/.test(form.cpf)) return
+    if (!form.fullName || !form.email) {
+      setErro('Preencha nome e e-mail.')
+      return
+    }
+    if (!/^\d{11}$/.test(form.cpf)) {
+      setErro('Informe um CPF válido com 11 números.')
+      return
+    }
     if (form.modalidades.length === 0) {
       setErro('Adicione ao menos uma modalidade.')
       return
@@ -206,7 +213,7 @@ export function AlunosPage() {
   async function remover(alunoId: string) {
     if (!window.confirm('Remover este aluno? Essa ação não pode ser desfeita.')) return
     const result = await deleteAluno(alunoId)
-    if (!result.success) alert(result.error)
+    if (!result.success) alert(result.error ?? 'Não foi possível remover o aluno.')
   }
 
   return (
@@ -359,7 +366,7 @@ export function AlunosPage() {
                     type="button"
                     onClick={async () => {
                       const result = await setAlunoStatus(aluno.id, aluno.status === 'ativo' ? 'inativo' : 'ativo')
-                      if (!result.success) alert(result.error)
+                      if (!result.success) alert(result.error ?? 'Não foi possível atualizar o status do aluno.')
                     }}
                   >
                     {aluno.status === 'ativo' ? 'Inativar' : 'Reativar'}

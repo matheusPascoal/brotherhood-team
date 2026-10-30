@@ -79,7 +79,11 @@ export function EstoquePage() {
   }
 
   async function salvarMaterial() {
-    if (!form.nome || !form.unidade) return
+    if (!form.nome || !form.unidade) {
+      setErroMaterial('Preencha nome e unidade.')
+      return
+    }
+    setErroMaterial(null)
     setSalvandoMaterial(true)
     const result = editingId ? await updateMaterial(editingId, form) : await createMaterial(form)
     setSalvandoMaterial(false)
@@ -97,7 +101,7 @@ export function EstoquePage() {
 
     const temMovimentacao = movimentosEstoque.some((m) => m.materialId === materialId)
     if (!temMovimentacao) {
-      alert(result.error)
+      alert(result.error ?? 'Não foi possível remover o material.')
       return
     }
     if (
@@ -108,7 +112,7 @@ export function EstoquePage() {
       return
     }
     const forcarResult = await deleteMaterial(materialId, true)
-    if (!forcarResult.success) alert(forcarResult.error)
+    if (!forcarResult.success) alert(forcarResult.error ?? 'Não foi possível remover o material.')
   }
 
   function abrirMovimentacao(materialId: string) {
@@ -377,7 +381,7 @@ export function EstoquePage() {
                   type="button"
                   onClick={async () => {
                     const result = await setMaterialStatus(item.material.id, item.material.status === 'ativo' ? 'inativo' : 'ativo')
-                    if (!result.success) alert(result.error)
+                    if (!result.success) alert(result.error ?? 'Não foi possível atualizar o status do material.')
                   }}
                 >
                   {item.material.status === 'ativo' ? 'Inativar' : 'Reativar'}

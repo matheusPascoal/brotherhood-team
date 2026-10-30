@@ -135,7 +135,7 @@ export function AlunosPagamentosPage() {
     const pagamento = pagamentos.find((p) => p.alunoModalidadeId === alunoModalidadeId && p.mesReferencia === MES_ATUAL)
     if (!pagamento) return
     const result = await confirmarPagamento(pagamento.id, professorId, metodoSelecionado)
-    if (!result.success) alert(result.error)
+    if (!result.success) alert(result.error ?? 'Não foi possível confirmar o pagamento.')
     setConfirmandoId(null)
   }
 
@@ -270,7 +270,7 @@ export function AlunosPagamentosPage() {
                     type="button"
                     onClick={async () => {
                       const result = await setAlunoStatus(aluno.id, aluno.status === 'ativo' ? 'inativo' : 'ativo')
-                      if (!result.success) alert(result.error)
+                      if (!result.success) alert(result.error ?? 'Não foi possível atualizar o status do aluno.')
                     }}
                   >
                     {aluno.status === 'ativo' ? 'Inativar' : 'Reativar'}

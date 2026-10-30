@@ -60,7 +60,7 @@ export function PagamentosPage() {
 
   async function confirmar(pagamentoId: string) {
     const result = await confirmarPagamento(pagamentoId, confirmadoPorId, metodoSelecionado)
-    if (!result.success) alert(result.error)
+    if (!result.success) alert(result.error ?? 'Não foi possível confirmar o pagamento.')
     setConfirmandoId(null)
   }
 

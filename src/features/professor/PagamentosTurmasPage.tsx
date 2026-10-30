@@ -53,14 +53,14 @@ export function PagamentosTurmasPage() {
 
   async function marcarComoPago(alunoModalidadeId: string) {
     const result = await definirPagamento(alunoModalidadeId, mesReferencia, true, professorId, metodoSelecionado)
-    if (!result.success) alert(result.error)
+    if (!result.success) alert(result.error ?? 'Não foi possível confirmar o pagamento.')
     setConfirmandoId(null)
   }
 
   async function marcarComoNaoPago(alunoModalidadeId: string) {
     if (!window.confirm('Marcar este pagamento como não pago?')) return
     const result = await definirPagamento(alunoModalidadeId, mesReferencia, false, professorId)
-    if (!result.success) alert(result.error)
+    if (!result.success) alert(result.error ?? 'Não foi possível reverter o pagamento.')
   }
 
   return (

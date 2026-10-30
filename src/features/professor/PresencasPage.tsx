@@ -53,7 +53,7 @@ export function PresencasPage() {
       alunosDaTurma.map((a) => ({ alunoId: a.id, presente: presentesPorAluno[a.id] ?? false })),
       observacaoAula
     )
-    if (!result.success) alert(result.error)
+    if (!result.success) alert(result.error ?? 'Não foi possível salvar a chamada.')
   }
 
   return (

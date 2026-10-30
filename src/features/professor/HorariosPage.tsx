@@ -74,7 +74,7 @@ export function HorariosPage() {
   async function remover(turmaId: string) {
     if (!window.confirm('Excluir esta turma? Essa ação não pode ser desfeita.')) return
     const result = await deleteTurma(turmaId)
-    if (!result.success) alert(result.error)
+    if (!result.success) alert(result.error ?? 'Não foi possível excluir a turma.')
   }
 
   function toggleDia(dia: DiaSemana) {

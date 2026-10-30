@@ -66,7 +66,10 @@ export function ProfessoresPage() {
   }
 
   async function salvar() {
-    if (!form.fullName || !form.email) return
+    if (!form.fullName || !form.email) {
+      setErro('Preencha nome e e-mail.')
+      return
+    }
     if (!editingId) {
       const erroSenha = validarSenha(form.senha)
       if (erroSenha) {
@@ -81,6 +84,7 @@ export function ProfessoresPage() {
         return
       }
     }
+    setErro(null)
     setSalvando(true)
     const result = editingId ? await updateProfessor(editingId, form) : await createProfessor(form)
     if (!result.success) {
@@ -106,7 +110,7 @@ export function ProfessoresPage() {
   async function remover(professorId: string) {
     if (!window.confirm('Remover este professor? Essa ação não pode ser desfeita.')) return
     const result = await deleteProfessor(professorId)
-    if (!result.success) alert(result.error)
+    if (!result.success) alert(result.error ?? 'Não foi possível remover o professor.')
   }
 
   function toggleModalidade(modalidadeId: string) {
@@ -247,7 +251,7 @@ export function ProfessoresPage() {
                   type="button"
                   onClick={async () => {
                     const result = await setProfessorStatus(professor.id, professor.status === 'ativo' ? 'inativo' : 'ativo')
-                    if (!result.success) alert(result.error)
+                    if (!result.success) alert(result.error ?? 'Não foi possível atualizar o status do professor.')
                   }}
                 >
                   {professor.status === 'ativo' ? 'Inativar' : 'Reativar'}

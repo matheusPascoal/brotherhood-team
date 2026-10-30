@@ -36,17 +36,35 @@ function validarSenha(senha: string): string | null {
   return null
 }
 
-// Mesma lógica de translateDbError em AppDataContext.tsx.
+// Mesma lógica de translateDbError em AppDataContext.tsx — mantida em sincronia
+// manualmente, já que a function roda isolada do bundle do frontend.
 function translateDbError(message: string): string {
-  if (message.toLowerCase().includes('alunos_cpf_key') || message.toLowerCase().includes('alunos_cpf_check')) {
-    return 'Já existe um aluno cadastrado com esse CPF.'
-  }
-  if (message.toLowerCase().includes('aluno_modalidades_aluno_id_modalidade_id_key')) {
+  const m = message.toLowerCase()
+  if (m.includes('alunos_cpf_key')) return 'Já existe um aluno cadastrado com esse CPF.'
+  if (m.includes('alunos_cpf_check')) return 'Informe um CPF válido com 11 números.'
+  if (m.includes('aluno_modalidades_aluno_id_modalidade_id_key')) {
     return 'Este aluno já está matriculado nessa modalidade — edite o bloco existente em vez de adicionar outro.'
   }
-  if (message.toLowerCase().includes('foreign key constraint')) {
+  if (m.includes('aluno_turmas_aluno_modalidade_id_turma_id_key')) {
+    return 'Esta turma já foi adicionada a essa matrícula.'
+  }
+  if (m.includes('dia_vencimento_check')) return 'O dia de vencimento precisa estar entre 1 e 31.'
+  if (m.includes('grau_atual_check')) return 'O grau precisa estar entre 0 e 4.'
+  if (m.includes('mensalidade_valor_check')) return 'O valor da mensalidade não pode ser negativo.'
+  if (m.includes('foreign key constraint')) {
     return 'Não é possível salvar: há uma referência inválida nos dados enviados.'
   }
+  return 'Não foi possível salvar o cadastro. Tente novamente em instantes.'
+}
+
+// Mensagens do GoTrue (auth.admin.createUser) vêm em inglês — traduz as mais
+// comuns pra manter o app 100% em PT-BR.
+function translateAuthError(message: string): string {
+  const m = message.toLowerCase()
+  if (m.includes('already been registered') || m.includes('already registered')) {
+    return 'Já existe uma conta cadastrada com esse e-mail.'
+  }
+  if (m.includes('unable to validate email') || m.includes('invalid email')) return 'Informe um e-mail válido.'
   return message
 }
 
@@ -143,7 +161,8 @@ Deno.serve(async (req) => {
   })
 
   if (createError || !created.user) {
-    return jsonResponse({ error: createError?.message ?? 'Não foi possível criar o usuário.' }, 409)
+    const message = createError ? translateAuthError(createError.message) : 'Não foi possível criar o usuário.'
+    return jsonResponse({ error: message }, 409)
   }
   const profileId = created.user.id
 
@@ -154,7 +173,7 @@ Deno.serve(async (req) => {
       .from('profiles')
       .update({ role, ...(phone !== undefined && { phone }) })
       .eq('id', profileId)
-    if (updateError) throw new Error(updateError.message)
+    if (updateError) throw new Error(translateDbError(updateError.message))
 
     if (role === 'aluno') {
       const alunoId = crypto.randomUUID()
@@ -181,7 +200,7 @@ Deno.serve(async (req) => {
           const { error: turmasError } = await adminClient
             .from('aluno_turmas')
             .insert(m.turmaIds.map((turmaId) => ({ aluno_modalidade_id: matricula.id, turma_id: turmaId })))
-          if (turmasError) throw new Error(turmasError.message)
+          if (turmasError) throw new Error(translateDbError(turmasError.message))
         }
       }
     }
@@ -190,13 +209,13 @@ Deno.serve(async (req) => {
       const { error: professorError } = await adminClient
         .from('professores')
         .insert({ profile_id: profileId, comissao_percentual: comissaoPercentual ?? 50 })
-      if (professorError) throw new Error(professorError.message)
+      if (professorError) throw new Error(translateDbError(professorError.message))
 
       if (modalidadeIds && modalidadeIds.length > 0) {
         const { error: junctionError } = await adminClient
           .from('professor_modalidades')
           .insert(modalidadeIds.map((modalidadeId) => ({ professor_id: profileId, modalidade_id: modalidadeId })))
-        if (junctionError) throw new Error(junctionError.message)
+        if (junctionError) throw new Error(translateDbError(junctionError.message))
       }
     }
   } catch (err) {

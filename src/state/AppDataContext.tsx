@@ -407,20 +407,42 @@ async function fetchAllTables(): Promise<AppDataState> {
 }
 
 function translateAuthError(message: string): string {
-  if (message.toLowerCase().includes('invalid login credentials')) return 'E-mail ou senha inválidos.'
+  const m = message.toLowerCase()
+  if (m.includes('invalid login credentials')) return 'E-mail ou senha inválidos.'
+  if (m.includes('email not confirmed')) return 'E-mail ainda não confirmado.'
+  if (m.includes('too many requests') || m.includes('rate limit')) {
+    return 'Muitas tentativas seguidas. Aguarde um instante e tente novamente.'
+  }
+  if (m.includes('should be different from the old password')) return 'A nova senha precisa ser diferente da atual.'
   return message
 }
 
-// Fallback amigável quando uma checagem local não pegou a violação e o
-// Postgres rejeitou por causa de um "on delete restrict".
+// Única porta de saída pros erros do Postgres: toda ação que escreve no banco
+// passa o error.message daqui antes de devolver pra tela, pra nunca vazar
+// texto técnico/em inglês (nome de constraint, "duplicate key value...") pro
+// usuário final. O fallback genérico cobre qualquer violação que ainda não
+// tenha um texto específico — melhor isso do que mostrar a mensagem crua.
 function translateDbError(message: string): string {
-  if (message.toLowerCase().includes('foreign key constraint')) {
-    return 'Não é possível remover: existem registros vinculados a este item.'
-  }
-  if (message.toLowerCase().includes('aluno_modalidades_aluno_id_modalidade_id_key')) {
+  const m = message.toLowerCase()
+  if (m.includes('alunos_cpf_key')) return 'Já existe um aluno cadastrado com esse CPF.'
+  if (m.includes('alunos_cpf_check')) return 'Informe um CPF válido com 11 números.'
+  if (m.includes('modalidades_nome_key')) return 'Já existe uma modalidade com esse nome.'
+  if (m.includes('aluno_modalidades_aluno_id_modalidade_id_key')) {
     return 'Este aluno já está matriculado nessa modalidade — edite o bloco existente em vez de adicionar outro.'
   }
-  return message
+  if (m.includes('aluno_turmas_aluno_modalidade_id_turma_id_key')) {
+    return 'Esta turma já foi adicionada a essa matrícula.'
+  }
+  if (m.includes('turmas_hora_fim_check')) return 'O horário de término precisa ser depois do horário de início.'
+  if (m.includes('turmas_capacidade_maxima_check')) return 'A capacidade máxima precisa ser maior que zero.'
+  if (m.includes('movimentos_estoque_quantidade_check')) return 'A quantidade precisa ser maior que zero.'
+  if (m.includes('dia_vencimento_check')) return 'O dia de vencimento precisa estar entre 1 e 31.'
+  if (m.includes('grau_atual_check')) return 'O grau precisa estar entre 0 e 4.'
+  if (m.includes('mensalidade_valor_check') || m.includes('_valor_check')) return 'O valor não pode ser negativo.'
+  if (m.includes('foreign key constraint')) {
+    return 'Não é possível remover: existem registros vinculados a este item.'
+  }
+  return 'Não foi possível salvar as alterações. Tente novamente em instantes.'
 }
 
 interface AdminCreateUserInput {
@@ -457,7 +479,7 @@ async function invokeAdminCreateUser(input: AdminCreateUserInput): Promise<{ id?
         // resposta sem corpo JSON — cai para a mensagem genérica abaixo
       }
     }
-    return { error: error.message }
+    return { error: 'Não foi possível concluir a operação. Verifique sua conexão e tente novamente.' }
   }
   if (data?.error) return { error: data.error }
   return { id: data?.id }
@@ -481,7 +503,7 @@ async function invokeAdminSetPassword(userId: string, newPassword: string): Prom
         // resposta sem corpo JSON — cai para a mensagem genérica abaixo
       }
     }
-    return { success: false, error: error.message }
+    return { success: false, error: 'Não foi possível concluir a operação. Verifique sua conexão e tente novamente.' }
   }
   if (data?.error) return { success: false, error: data.error }
   return { success: true }
@@ -511,7 +533,7 @@ async function inserirModalidadesDoAluno(alunoId: string, modalidades: AlunoModa
       const { error: turmasError } = await supabase
         .from('aluno_turmas')
         .insert(m.turmaIds.map((turmaId) => ({ aluno_modalidade_id: matricula.id, turma_id: turmaId })))
-      if (turmasError) return { success: false, error: turmasError.message }
+      if (turmasError) return { success: false, error: translateDbError(turmasError.message) }
     }
   }
   return { success: true }
@@ -632,7 +654,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         .from('pagamentos')
         .update({ status: 'confirmado', metodo, confirmado_por: confirmadoPorId, confirmado_em: new Date().toISOString() })
         .eq('id', pagamentoId)
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('pagamentos', fetchPagamentos)
       return { success: true }
     },
@@ -661,13 +683,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           },
           { onConflict: 'aluno_modalidade_id,mes_referencia' }
         )
-        if (error) return { success: false, error: error.message }
+        if (error) return { success: false, error: translateDbError(error.message) }
       } else if (existente) {
         const { error } = await supabase
           .from('pagamentos')
           .update({ status: 'pendente', metodo: null, confirmado_por: null, confirmado_em: null })
           .eq('id', existente.id)
-        if (error) return { success: false, error: error.message }
+        if (error) return { success: false, error: translateDbError(error.message) }
       }
 
       await refetchTable('pagamentos', fetchPagamentos)
@@ -699,7 +721,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           .from('professores')
           .update({ comissao_percentual: updates.comissaoPercentual })
           .eq('id', professorId)
-        if (error) return { success: false, error: error.message }
+        if (error) return { success: false, error: translateDbError(error.message) }
       }
 
       if (updates.modalidadeIds !== undefined) {
@@ -708,7 +730,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           const { error } = await supabase
             .from('professor_modalidades')
             .insert(updates.modalidadeIds.map((modalidadeId) => ({ professor_id: professor.profileId, modalidade_id: modalidadeId })))
-          if (error) return { success: false, error: error.message }
+          if (error) return { success: false, error: translateDbError(error.message) }
         }
       }
 
@@ -718,7 +740,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (updates.phone !== undefined) profilePayload.phone = updates.phone
       if (Object.keys(profilePayload).length > 0) {
         const { error } = await supabase.from('profiles').update(profilePayload).eq('id', professor.profileId)
-        if (error) return { success: false, error: error.message }
+        if (error) return { success: false, error: translateDbError(error.message) }
       }
 
       await Promise.all([refetchTable('profiles', fetchProfiles), refetchTable('professores', fetchProfessores)])
@@ -727,7 +749,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     setProfessorStatus: async (professorId, status) => {
       const { error } = await supabase.from('professores').update({ status }).eq('id', professorId)
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('professores', fetchProfessores)
       return { success: true }
     },
@@ -782,7 +804,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
       if (updates.cpf !== undefined) {
         const { error } = await supabase.from('alunos').update({ cpf: updates.cpf }).eq('id', alunoId)
-        if (error) return { success: false, error: error.message }
+        if (error) return { success: false, error: translateDbError(error.message) }
       }
 
       if (aluno.profileId && (updates.fullName !== undefined || updates.email !== undefined)) {
@@ -790,7 +812,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         if (updates.fullName !== undefined) profilePayload.full_name = updates.fullName
         if (updates.email !== undefined) profilePayload.email = updates.email
         const { error } = await supabase.from('profiles').update(profilePayload).eq('id', aluno.profileId)
-        if (error) return { success: false, error: error.message }
+        if (error) return { success: false, error: translateDbError(error.message) }
       }
 
       if (updates.modalidades !== undefined) {
@@ -804,7 +826,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         const removidas = atuais.filter((am) => !idsSubmetidos.has(am.id))
         for (const am of removidas) {
           const { error } = await supabase.from('aluno_modalidades').update({ status: 'inativo' }).eq('id', am.id)
-          if (error) return { success: false, error: error.message }
+          if (error) return { success: false, error: translateDbError(error.message) }
         }
 
         const novas = updates.modalidades.filter((m) => !m.id)
@@ -824,7 +846,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
               status: 'ativo',
             })
             .eq('id', m.id)
-          if (updateError) return { success: false, error: updateError.message }
+          if (updateError) return { success: false, error: translateDbError(updateError.message) }
 
           const atual = atuais.find((am) => am.id === m.id)
           const turmasAtuais = new Set(atual?.turmaIds ?? [])
@@ -838,13 +860,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
               .delete()
               .eq('aluno_modalidade_id', m.id)
               .in('turma_id', paraRemover)
-            if (delError) return { success: false, error: delError.message }
+            if (delError) return { success: false, error: translateDbError(delError.message) }
           }
           if (paraAdicionar.length > 0) {
             const { error: insError } = await supabase
               .from('aluno_turmas')
               .insert(paraAdicionar.map((turmaId) => ({ aluno_modalidade_id: m.id!, turma_id: turmaId })))
-            if (insError) return { success: false, error: insError.message }
+            if (insError) return { success: false, error: translateDbError(insError.message) }
           }
         }
       }
@@ -859,14 +881,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     setAlunoStatus: async (alunoId, status) => {
       const { error } = await supabase.from('alunos').update({ status }).eq('id', alunoId)
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('alunos', fetchAlunos)
       return { success: true }
     },
 
     setAlunoModalidadeStatus: async (alunoModalidadeId, status) => {
       const { error } = await supabase.from('aluno_modalidades').update({ status }).eq('id', alunoModalidadeId)
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('alunoModalidades', fetchAlunoModalidades)
       return { success: true }
     },
@@ -900,7 +922,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     createModalidade: async (input) => {
       const { error } = await supabase.from('modalidades').insert({ nome: input.nome, faixas_ordem: input.faixasOrdem })
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('modalidades', fetchModalidades)
       return { success: true }
     },
@@ -910,7 +932,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (updates.nome !== undefined) payload.nome = updates.nome
       if (updates.faixasOrdem !== undefined) payload.faixas_ordem = updates.faixasOrdem
       const { error } = await supabase.from('modalidades').update(payload).eq('id', modalidadeId)
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('modalidades', fetchModalidades)
       return { success: true }
     },
@@ -944,7 +966,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         hora_fim: input.horaFim,
         dias_semana: input.diasSemana,
       })
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('turmas', fetchTurmas)
       return { success: true }
     },
@@ -960,7 +982,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (updates.horaFim !== undefined) payload.hora_fim = updates.horaFim
       if (updates.diasSemana !== undefined) payload.dias_semana = updates.diasSemana
       const { error } = await supabase.from('turmas').update(payload).eq('id', turmaId)
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('turmas', fetchTurmas)
       return { success: true }
     },
@@ -985,7 +1007,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         observacao_aula: observacaoAula || null,
       }))
       const { error } = await supabase.from('presencas').upsert(rows, { onConflict: 'turma_id,aluno_id,data_aula' })
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('presencas', fetchPresencas)
       return { success: true }
     },
@@ -998,7 +1020,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         estoque_minimo: input.estoqueMinimo,
         preco_unitario: input.precoUnitario,
       })
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('materiais', fetchMateriais)
       return { success: true }
     },
@@ -1011,14 +1033,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (updates.estoqueMinimo !== undefined) payload.estoque_minimo = updates.estoqueMinimo
       if (updates.precoUnitario !== undefined) payload.preco_unitario = updates.precoUnitario
       const { error } = await supabase.from('materiais').update(payload).eq('id', materialId)
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('materiais', fetchMateriais)
       return { success: true }
     },
 
     setMaterialStatus: async (materialId, status) => {
       const { error } = await supabase.from('materiais').update({ status }).eq('id', materialId)
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('materiais', fetchMateriais)
       return { success: true }
     },
@@ -1033,7 +1055,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
       if (forcar) {
         const { error: movError } = await supabase.from('movimentos_estoque').delete().eq('material_id', materialId)
-        if (movError) return { success: false, error: movError.message }
+        if (movError) return { success: false, error: translateDbError(movError.message) }
       }
       const { error } = await supabase.from('materiais').delete().eq('id', materialId)
       if (error) return { success: false, error: translateDbError(error.message) }
@@ -1051,7 +1073,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         observacao: input.observacao,
         registrado_por: registradoPorId,
       })
-      if (error) return { success: false, error: error.message }
+      if (error) return { success: false, error: translateDbError(error.message) }
       await refetchTable('movimentosEstoque', fetchMovimentos)
       return { success: true }
     },
