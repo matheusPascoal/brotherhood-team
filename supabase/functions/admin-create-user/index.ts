@@ -219,6 +219,15 @@ Deno.serve(async (req) => {
       }
     }
   } catch (err) {
+    // alunos.profile_id é "on delete set null" (não cascade — um aluno pode
+    // existir sem login próprio), então só apagar o auth user não basta: a
+    // linha de alunos sobreviveria órfã (profile_id = null), travando o CPF
+    // pra sempre numa conta que nunca existiu de verdade. Apaga a linha de
+    // alunos primeiro (cascateia pra aluno_modalidades/aluno_turmas) — sem
+    // efeito se a falha foi antes desse insert.
+    if (role === 'aluno') {
+      await adminClient.from('alunos').delete().eq('profile_id', profileId)
+    }
     await adminClient.auth.admin.deleteUser(profileId)
     const message = err instanceof Error ? err.message : 'Não foi possível salvar o cadastro.'
     return jsonResponse({ error: message }, 500)

@@ -433,7 +433,10 @@ function translateDbError(message: string): string {
   if (m.includes('aluno_turmas_aluno_modalidade_id_turma_id_key')) {
     return 'Esta turma já foi adicionada a essa matrícula.'
   }
-  if (m.includes('turmas_hora_fim_check')) return 'O horário de término precisa ser depois do horário de início.'
+  // Postgres nomeia a constraint sem nome explícito como "turmas_check" (não
+  // "turmas_hora_fim_check" como o nome da coluna sugeriria) — confirmado via
+  // pg_constraint; sem isso esse erro caía sempre no fallback genérico.
+  if (m.includes('turmas_check')) return 'O horário de término precisa ser depois do horário de início.'
   if (m.includes('turmas_capacidade_maxima_check')) return 'A capacidade máxima precisa ser maior que zero.'
   if (m.includes('movimentos_estoque_quantidade_check')) return 'A quantidade precisa ser maior que zero.'
   if (m.includes('dia_vencimento_check')) return 'O dia de vencimento precisa estar entre 1 e 31.'
