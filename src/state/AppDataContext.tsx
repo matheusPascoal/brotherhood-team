@@ -429,6 +429,14 @@ interface AdminCreateUserInput {
   fullName: string
   phone?: string
   role: 'professor' | 'aluno'
+  // role === 'aluno' — a function cria a linha em `alunos` e as matrículas
+  // no mesmo passo que cria o login, com rollback se algo falhar (ver
+  // admin-create-user/index.ts).
+  cpf?: string
+  modalidades?: AlunoModalidadeInput[]
+  // role === 'professor'
+  comissaoPercentual?: number
+  modalidadeIds?: string[]
 }
 
 // Chama a Edge Function admin-create-user (service_role fica só no servidor
@@ -673,21 +681,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         fullName: input.fullName,
         phone: input.phone,
         role: 'professor',
+        comissaoPercentual: input.comissaoPercentual,
+        modalidadeIds: input.modalidadeIds,
       })
       if (!result.id) return { success: false, error: result.error ?? 'Não foi possível criar o professor.' }
-      const profileId = result.id
-
-      const { error: professorError } = await supabase
-        .from('professores')
-        .insert({ profile_id: profileId, comissao_percentual: input.comissaoPercentual })
-      if (professorError) return { success: false, error: professorError.message }
-
-      if (input.modalidadeIds.length > 0) {
-        const { error: junctionError } = await supabase
-          .from('professor_modalidades')
-          .insert(input.modalidadeIds.map((modalidadeId) => ({ professor_id: profileId, modalidade_id: modalidadeId })))
-        if (junctionError) return { success: false, error: junctionError.message }
-      }
 
       await Promise.all([refetchTable('profiles', fetchProfiles), refetchTable('professores', fetchProfessores)])
       return { success: true }
@@ -756,27 +753,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     },
 
     createAluno: async (input) => {
+      // Login, linha em `alunos` e matrículas são criados atomicamente na
+      // function (service_role) — se qualquer parte falhar depois do login
+      // já ter sido criado, ela desfaz o login (ver admin-create-user). Isso
+      // evita ficar com um login órfão preso num e-mail que ninguém consegue
+      // mais usar nem achar.
       const result = await invokeAdminCreateUser({
         email: input.email,
         password: input.senha,
         fullName: input.fullName,
         role: 'aluno',
+        cpf: input.cpf,
+        modalidades: input.modalidades,
       })
       if (!result.id) return { success: false, error: result.error ?? 'Não foi possível criar o aluno.' }
-      const profileId = result.id
-
-      // Sem .select() de propósito: o professor só passa a enxergar este
-      // aluno (policy alunos_select_professor) depois que a matrícula for
-      // criada logo abaixo — um INSERT ... RETURNING seria barrado pelo
-      // Postgres (RLS exige que a linha devolvida passe pela policy de
-      // SELECT mesmo já tendo passado no WITH CHECK do INSERT). Por isso o
-      // id é gerado no cliente, não devolvido pelo banco.
-      const alunoId = crypto.randomUUID()
-      const { error: alunoError } = await supabase.from('alunos').insert({ id: alunoId, profile_id: profileId, cpf: input.cpf })
-      if (alunoError) return { success: false, error: translateDbError(alunoError.message) }
-
-      const modalidadeResult = await inserirModalidadesDoAluno(alunoId, input.modalidades)
-      if (!modalidadeResult.success) return modalidadeResult
 
       await Promise.all([
         refetchTable('profiles', fetchProfiles),

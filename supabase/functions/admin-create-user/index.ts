@@ -4,6 +4,14 @@
 // profiles.role, já que o trigger handle_new_user() (migration 0014) sempre
 // cria o profile como 'aluno' por padrão. Usa a service_role key (injetada
 // automaticamente no runtime da function) — ela nunca deve existir no frontend.
+//
+// A criação do professor/aluno em si (linha em professores/alunos + vínculos)
+// também acontece aqui, com o service_role, em vez de voltar pro cliente
+// fazer esses inserts com a chave anônima. Isso é proposital: se um desses
+// inserts falhar depois que o auth.users já foi criado (ex: CPF duplicado),
+// o rollback abaixo apaga o usuário recém-criado — sem isso, o e-mail fica
+// preso num login órfão (sem linha em alunos/professores, logo invisível nas
+// telas que listam por essas tabelas) e nem reaparece pra apagar manualmente.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const CORS_HEADERS = {
@@ -28,12 +36,42 @@ function validarSenha(senha: string): string | null {
   return null
 }
 
+// Mesma lógica de translateDbError em AppDataContext.tsx.
+function translateDbError(message: string): string {
+  if (message.toLowerCase().includes('alunos_cpf_key') || message.toLowerCase().includes('alunos_cpf_check')) {
+    return 'Já existe um aluno cadastrado com esse CPF.'
+  }
+  if (message.toLowerCase().includes('aluno_modalidades_aluno_id_modalidade_id_key')) {
+    return 'Este aluno já está matriculado nessa modalidade — edite o bloco existente em vez de adicionar outro.'
+  }
+  if (message.toLowerCase().includes('foreign key constraint')) {
+    return 'Não é possível salvar: há uma referência inválida nos dados enviados.'
+  }
+  return message
+}
+
+interface ModalidadeInput {
+  professorId: string
+  modalidadeId: string
+  faixaAtual: string
+  grauAtual: number
+  mensalidadeValor: number
+  diaVencimento: number
+  turmaIds: string[]
+}
+
 interface RequestBody {
   email: string
   password: string
   fullName: string
   phone?: string
   role: 'professor' | 'aluno'
+  // role === 'aluno'
+  cpf?: string
+  modalidades?: ModalidadeInput[]
+  // role === 'professor'
+  comissaoPercentual?: number
+  modalidadeIds?: string[]
 }
 
 Deno.serve(async (req) => {
@@ -78,7 +116,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Corpo da requisição inválido.' }, 400)
   }
 
-  const { email, password, fullName, phone, role } = body
+  const { email, password, fullName, phone, role, cpf, modalidades, comissaoPercentual, modalidadeIds } = body
 
   if (!email || !fullName) return jsonResponse({ error: 'E-mail e nome são obrigatórios.' }, 400)
   const erroSenha = password ? validarSenha(password) : 'A senha é obrigatória.'
@@ -92,6 +130,10 @@ Deno.serve(async (req) => {
   if (callerRole === 'professor' && role !== 'aluno') {
     return jsonResponse({ error: 'Professores só podem cadastrar alunos.' }, 403)
   }
+  if (role === 'aluno') {
+    if (!cpf || !/^\d{11}$/.test(cpf)) return jsonResponse({ error: 'Informe um CPF válido com 11 números.' }, 400)
+    if (!modalidades || modalidades.length === 0) return jsonResponse({ error: 'Adicione ao menos uma modalidade.' }, 400)
+  }
 
   const { data: created, error: createError } = await adminClient.auth.admin.createUser({
     email,
@@ -103,15 +145,65 @@ Deno.serve(async (req) => {
   if (createError || !created.user) {
     return jsonResponse({ error: createError?.message ?? 'Não foi possível criar o usuário.' }, 409)
   }
+  const profileId = created.user.id
 
-  const { error: updateError } = await adminClient
-    .from('profiles')
-    .update({ role, ...(phone !== undefined && { phone }) })
-    .eq('id', created.user.id)
+  // A partir daqui o auth.users já existe — qualquer falha precisa desfazer
+  // essa criação (catch abaixo), senão o e-mail fica preso num login órfão.
+  try {
+    const { error: updateError } = await adminClient
+      .from('profiles')
+      .update({ role, ...(phone !== undefined && { phone }) })
+      .eq('id', profileId)
+    if (updateError) throw new Error(updateError.message)
 
-  if (updateError) {
-    return jsonResponse({ error: updateError.message }, 500)
+    if (role === 'aluno') {
+      const alunoId = crypto.randomUUID()
+      const { error: alunoError } = await adminClient.from('alunos').insert({ id: alunoId, profile_id: profileId, cpf })
+      if (alunoError) throw new Error(translateDbError(alunoError.message))
+
+      for (const m of modalidades!) {
+        const { data: matricula, error: matriculaError } = await adminClient
+          .from('aluno_modalidades')
+          .insert({
+            aluno_id: alunoId,
+            professor_id: m.professorId,
+            modalidade_id: m.modalidadeId,
+            faixa_atual: m.faixaAtual,
+            grau_atual: m.grauAtual,
+            mensalidade_valor: m.mensalidadeValor,
+            dia_vencimento: m.diaVencimento,
+          })
+          .select()
+          .single()
+        if (matriculaError) throw new Error(translateDbError(matriculaError.message))
+
+        if (m.turmaIds.length > 0) {
+          const { error: turmasError } = await adminClient
+            .from('aluno_turmas')
+            .insert(m.turmaIds.map((turmaId) => ({ aluno_modalidade_id: matricula.id, turma_id: turmaId })))
+          if (turmasError) throw new Error(turmasError.message)
+        }
+      }
+    }
+
+    if (role === 'professor') {
+      const { error: professorError } = await adminClient
+        .from('professores')
+        .insert({ profile_id: profileId, comissao_percentual: comissaoPercentual ?? 50 })
+      if (professorError) throw new Error(professorError.message)
+
+      if (modalidadeIds && modalidadeIds.length > 0) {
+        const { error: junctionError } = await adminClient
+          .from('professor_modalidades')
+          .insert(modalidadeIds.map((modalidadeId) => ({ professor_id: profileId, modalidade_id: modalidadeId })))
+        if (junctionError) throw new Error(junctionError.message)
+      }
+    }
+  } catch (err) {
+    await adminClient.auth.admin.deleteUser(profileId)
+    const message = err instanceof Error ? err.message : 'Não foi possível salvar o cadastro.'
+    return jsonResponse({ error: message }, 500)
   }
 
-  return jsonResponse({ id: created.user.id }, 200)
+  return jsonResponse({ id: profileId }, 200)
 })
